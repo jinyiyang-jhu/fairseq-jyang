@@ -16,12 +16,15 @@ logger = logging.getLogger(__name__)
 
 def collate(
     samples,
-    pad_idx,
+    pad_idx, pad_idx_pos, mask_pad_value,
     eos_idx,
     left_pad_source=True,
     left_pad_target=False,
     input_feeding=True,
     pad_to_length=None,
+    constrained_softmax_fill_value=None,
+    src_dict=None,
+    tgt_dict=None,
 ):
     if len(samples) == 0:
         return {}
@@ -31,6 +34,17 @@ def collate(
             [s[key] for s in samples],
             pad_idx, eos_idx, left_pad, move_eos_to_beginning,
             pad_to_length=pad_to_length,
+        )
+    def merge_pos(key, left_pad,move_eos_to_beginning=False):
+        return data_utils.collate_tokens(
+            [s[key] for s in samples],
+            pad_idx_pos, None, left_pad, move_eos_to_beginning,
+        )
+    def merge_mask(key, mask_pad_value, left_pad, move_eos_to_beginning=False):
+        """Covert a list of 2d tensors into a padded 3d tensor"""
+        return data_utils.collate_mask(
+            [s[key] for s in samples],
+            mask_pad_value, left_pad, move_eos_to_beginning,
         )
 
     def check_alignment(alignment, src_len, tgt_len):
@@ -60,13 +74,23 @@ def collate(
         'source', left_pad=left_pad_source,
         pad_to_length=pad_to_length['source'] if pad_to_length is not None else None
     )
+    src_pos_ids = merge_pos('src_pos', left_pad=left_pad_source)
+    src_masks = merge_mask('src_mask', mask_pad_value, left_pad=left_pad_source)
     # sort by descending source length
     src_lengths = torch.LongTensor([
         s['source'].ne(pad_idx).long().sum() for s in samples
     ])
+    src_pos_lengths = torch.LongTensor([s['src_pos'].numel() for s in samples])
+    src_mask_lenths = torch.LongTensor([s['src_mask'].shape(0) for s in samples])
+
+    assert torch.all(torch.eq(src_lengths, src_pos_lengths))
+    assert torch.all(torch.eq(src_lengths, src_mask_lenths))
+
     src_lengths, sort_order = src_lengths.sort(descending=True)
     id = id.index_select(0, sort_order)
     src_tokens = src_tokens.index_select(0, sort_order)
+    src_pos_ids = src_pos_ids.index_select(0, sort_order)
+    src_masks = src_masks.index_select(0, sort_order)
 
     prev_output_tokens = None
     target = None
@@ -102,11 +126,21 @@ def collate(
         'net_input': {
             'src_tokens': src_tokens,
             'src_lengths': src_lengths,
+            'src_pos_ids': src_pos_ids,
+            'src_masks': src_masks,
         },
         'target': target,
     }
     if prev_output_tokens is not None:
         batch['net_input']['prev_output_tokens'] = prev_output_tokens.index_select(0, sort_order)
+
+    if constrained_softmax_fill_value is not None:
+        if src_dict and src_dict == tgt_dict:
+            softmax_mask = data_utils.create_constrained_softmax_mask(src_tokens, tgt_dict, pad_idx,
+                constrained_softmax_fill_value=constrained_softmax_fill_value)
+            batch['net_input']['constrained_softmax_mask'] = softmax_mask
+        else:
+            raise ValueError("--constrained-softmax requires same src_dict and tgt_dict")
 
     if samples[0].get('alignment', None) is not None:
         bsz, tgt_sz = batch['target'].shape
@@ -146,7 +180,7 @@ def collate(
     return batch
 
 
-class LanguagePairDataset(FairseqDataset):
+class LanguagePairLatticeDataset(FairseqDataset):
     """
     A pair of torch.utils.data.Datasets.
 
@@ -154,6 +188,10 @@ class LanguagePairDataset(FairseqDataset):
         src (torch.utils.data.Dataset): source dataset to wrap
         src_sizes (List[int]): source sentence lengths
         src_dict (~fairseq.data.Dictionary): source vocabulary
+        src_pos (ConcatDataset): source sentence postion indices
+        src_pos_padding_idx (int): source sentence position padding index
+        src_mask (ConcatDataset): source sentence self attention mask
+        mask_pad_value (float): padding value for probabilistic mask
         tgt (torch.utils.data.Dataset, optional): target dataset to wrap
         tgt_sizes (List[int], optional): target sentence lengths
         tgt_dict (~fairseq.data.Dictionary, optional): target vocabulary
@@ -186,7 +224,8 @@ class LanguagePairDataset(FairseqDataset):
     """
 
     def __init__(
-        self, src, src_sizes, src_dict,
+        self, src, src_sizes, src_pos, src_pos_padding_idx, src_mask,
+        mask_pad_value, src_dict,
         tgt=None, tgt_sizes=None, tgt_dict=None,
         left_pad_source=True, left_pad_target=False,
         shuffle=True, input_feeding=True,
@@ -195,6 +234,7 @@ class LanguagePairDataset(FairseqDataset):
         constraints=None,
         append_bos=False, eos=None,
         num_buckets=0,
+        constrained_softmax_fill_value=None,
         src_lang_id=None,
         tgt_lang_id=None,
     ):
@@ -205,11 +245,16 @@ class LanguagePairDataset(FairseqDataset):
         if tgt is not None:
             assert len(src) == len(tgt), "Source and target must contain the same number of examples"
         self.src = src
+        self.src_pos = src_pos
+        self.src_pos_padding_idx = src_pos_padding_idx
+        self.src_mask = src_mask
+        self.mask_pad_value = mask_pad_value
         self.tgt = tgt
         self.src_sizes = np.array(src_sizes)
         self.tgt_sizes = np.array(tgt_sizes) if tgt_sizes is not None else None
         self.src_dict = src_dict
         self.tgt_dict = tgt_dict
+        self.constrained_softmax_fill_value = constrained_softmax_fill_value
         self.left_pad_source = left_pad_source
         self.left_pad_target = left_pad_target
         self.shuffle = shuffle
@@ -263,6 +308,10 @@ class LanguagePairDataset(FairseqDataset):
     def __getitem__(self, index):
         tgt_item = self.tgt[index] if self.tgt is not None else None
         src_item = self.src[index]
+        src_pos_item = self.src_pos[index]
+        src_item_len = len(src_item)
+        src_mask_item = self.src_mask[index].view(src_item_len, src_item_len)
+
         # Append EOS to end of tgt sentence if it does not have an EOS and remove
         # EOS from end of src sentence if it exists. This is useful when we use
         # use existing datasets for opposite directions i.e., when we want to
@@ -289,6 +338,8 @@ class LanguagePairDataset(FairseqDataset):
         example = {
             'id': index,
             'source': src_item,
+            'src_pos': src_pos_item,
+            'src_mask': src_mask_item,
             'target': tgt_item,
         }
         if self.align_dataset is not None:
@@ -339,10 +390,15 @@ class LanguagePairDataset(FairseqDataset):
         res = collate(
             samples,
             pad_idx=self.src_dict.pad(),
+            pad_idx_pos=self.src_pos_padding_idx,
+            mask_pad_value=self.mask_pad_value,
             eos_idx=self.eos,
             left_pad_source=self.left_pad_source,
             left_pad_target=self.left_pad_target,
             input_feeding=self.input_feeding,
+            constrained_softmax_fill_value=self.constrained_softmax_fill_value,
+            src_dict=self.src_dict,
+            tgt_dict=self.tgt_dict,
             pad_to_length=pad_to_length,
         )
         if self.src_lang_id is not None or self.tgt_lang_id is not None:
