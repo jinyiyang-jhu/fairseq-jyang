@@ -35,6 +35,7 @@ encoder_layers=6
 decoder_layers=6
 encoder_attention_heads=8
 encoder_mask_scale=5.0
+cross_mask_scale=1.0
 decoder_attention_heads=8
 encoder_embed_dim=512 # default: 1024
 encoder_ffn_embed_dim=2048 # default: 4096
@@ -44,7 +45,7 @@ decoder_ffn_embed_dim=2048 # default: 4096
 # Model dir args
 decode_mdl="checkpoint_best" # This model gives best WER
 date=`date | awk '{print $2"_"$3}'`
-mdl_name="train_${ref_name}_lattice_${date}_scale_${encoder_mask_scale}_0.0_max_tokens_${max_tokens}_warmup_${warmup_updates}_lr_${lr}_layers_${encoder_layers}_${decoder_layers}_dim_${encoder_embed_dim}_${encoder_ffn_embed_dim}_heads_${encoder_attention_heads}_${decoder_attention_heads}_max_epoch_${max_epoch}_dropout_${dropout}"
+mdl_name="train_${ref_name}_lattice_${date}_scale_${encoder_mask_scale}_${cross_mask_scale}_max_tokens_${max_tokens}_warmup_${warmup_updates}_lr_${lr}_layers_${encoder_layers}_${decoder_layers}_dim_${encoder_embed_dim}_${encoder_ffn_embed_dim}_heads_${encoder_attention_heads}_${decoder_attention_heads}_max_epoch_${max_epoch}_dropout_${dropout}"
 exp_dir=exp/$mdl_name
  
 if [ $stage -le 1 ]; then
@@ -99,6 +100,7 @@ if [ $stage -le 3 ]; then
    --decoder-embed-dim $decoder_embed_dim \
    --decoder-ffn-embed-dim $decoder_ffn_embed_dim \
    --decoder-attention-heads $decoder_attention_heads \
+   --cross-attn-mask-scale $cross_mask_scale \
    --tensorboard-logdir $exp_dir/tensorboard-log \
    --share-all-embeddings \
    --activation-fn relu \
