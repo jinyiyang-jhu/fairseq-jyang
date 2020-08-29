@@ -107,7 +107,7 @@ def main(args):
     if target and tgt_dict is not None:
         tgt_dict.save(dict_path(args.target_lang))
 
-    def make_binary_dataset(vocab, input_prefix, output_prefix, lang, num_workers):
+    def make_binary_dataset(vocab, input_prefix, output_prefix, lang, num_workers, append_eos: bool = True):
         logger.info("[{}] Dictionary: {} types".format(lang, len(vocab)))
         n_seq_tok = [0, 0]
         replaced = Counter()
@@ -135,7 +135,8 @@ def main(args):
                         prefix,
                         lang,
                         offsets[worker_id],
-                        offsets[worker_id + 1]
+                        offsets[worker_id + 1],
+                        append_eos
                     ),
                     callback=merge_result
                 )
@@ -145,7 +146,7 @@ def main(args):
                                           impl=args.dataset_impl, vocab_size=len(vocab))
         merge_result(
             Binarizer.binarize(
-                input_file, vocab, lambda t: ds.add_item(t),
+                input_file, vocab, lambda t: ds.add_item(t), append_eos=append_eos,
                 offset=0, end=offsets[1]
             )
         )
@@ -225,7 +226,7 @@ def main(args):
             )
         )
 
-    def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1):
+    def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1, append_eos=True):
         if args.dataset_impl == "raw":
             # Copy original text file to destination folder
             output_text_file = dest_path(
@@ -234,19 +235,19 @@ def main(args):
             )
             shutil.copyfile(file_name(input_prefix, lang), output_text_file)
         else:
-            make_binary_dataset(vocab, input_prefix, output_prefix, lang, num_workers)
+            make_binary_dataset(vocab, input_prefix, output_prefix, lang, num_workers, append_eos=append_eos)
 
-    def make_all(lang, vocab):
+    def make_all(lang, vocab, append_eos=True):
         if args.trainpref:
-            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers)
+            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.num_workers, append_eos=append_eos)
         if args.validpref:
             for k, validpref in enumerate(args.validpref.split(",")):
                 outprefix = "valid{}".format(k) if k > 0 else "valid"
-                make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers)
+                make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, append_eos=append_eos)
         if args.testpref:
             for k, testpref in enumerate(args.testpref.split(",")):
                 outprefix = "test{}".format(k) if k > 0 else "test"
-                make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers)
+                make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, append_eos=append_eos)
 
     def make_all_alignments():
         if args.trainpref and os.path.exists(args.trainpref + "." + args.align_suffix):
@@ -256,9 +257,9 @@ def main(args):
         if args.testpref and os.path.exists(args.testpref + "." + args.align_suffix):
             make_binary_alignment_dataset(args.testpref + "." + args.align_suffix, "test.align", num_workers=args.workers)
 
-    make_all(args.source_lang, src_dict)
+    make_all(args.source_lang, src_dict, append_eos=args.append_eos_src)
     if target:
-        make_all(args.target_lang, tgt_dict)
+        make_all(args.target_lang, tgt_dict, append_eos=args.append_eos_tgt)
     if args.align_suffix:
         make_all_alignments()
 

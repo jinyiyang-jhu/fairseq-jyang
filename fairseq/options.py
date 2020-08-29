@@ -295,6 +295,10 @@ def add_preprocess_args(parser):
                        help="source language")
     group.add_argument("-t", "--target-lang", default=None, metavar="TARGET",
                        help="target language")
+    group.add_argument("--append-eos-src", action="store_true",
+                       help="append src dicionary eos to the end of source tokens")
+    group.add_argument("--append-eos-tgt", action="store_true",
+                       help="append tgt dictionary eos to the end of target tokens")
     group.add_argument("--trainpref", metavar="FP", default=None,
                        help="train file prefix")
     group.add_argument("--validpref", metavar="FP", default=None,

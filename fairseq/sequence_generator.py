@@ -766,7 +766,7 @@ class EnsembleModel(nn.Module):
         if not self.has_encoder():
             return None
         return [
-            model.encoder.forward_torchscript(net_input)
+            model.encoder.forward_non_torchscript(net_input)
             for model in self.models
         ]
 

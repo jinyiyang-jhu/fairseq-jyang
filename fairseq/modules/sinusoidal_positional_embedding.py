@@ -85,10 +85,13 @@ class SinusoidalPositionalEmbedding(nn.Module):
                     .repeat(bsz, 1, 1)
                 )
             return self.weights[self.padding_idx + pos, :].expand(bsz, 1, -1)
-
-        positions = utils.make_positions(
-            input, self.padding_idx, onnx_trace=self.onnx_trace
-        )
+        if positions is None:
+            positions = utils.make_positions(
+                input, self.padding_idx, onnx_trace=self.onnx_trace
+            )
+        else:
+            mask = input.ne(self.padding_idx).int()
+            positions = (positions.type_as(mask) * mask).long() + self.padding_idx
         if self.onnx_trace:
             flat_embeddings = self.weights.detach().index_select(0, positions.view(-1))
             embedding_shape = torch.cat(
