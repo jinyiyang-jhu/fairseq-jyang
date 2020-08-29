@@ -31,6 +31,28 @@ def infer_language_pair(path):
             return parts[1].split('-')
     return src, dst
 
+def create_constrained_softmax_mask(src_tokens, tgt_dict, pad_idx, constrained_softmax_fill_value=None)
+    """Creat a mask for each sentence in a batch.
+    Args:
+        src_tokens (LongTensor): source tokens, shape `(sample_len, src_tokens_len)`
+        tgt_dict: target dictionary
+        pad_idx: the pad_idx will be considered as no in src_tokens, so the mask value
+            at its position will be constrained_softmax_fill_value
+        constrained_softmax_fill_value (float): a value to fill in the softmax mask
+    Returns:
+        constrained_softmax_mask: shape `(sample_len, tgt_dict_len)`, it contains two type of values:
+        zero, which means the zero-indexed position in the presoftmax is kept as it is; constrained_softmax_mask_fill_value,
+        which means the constrained_softmax_fill_value-indexed position in the softmax is added with constrained_softmax_fill_value.
+        Usually it should be a negative float number, e.g., -1e8, since it is in log domain.
+    """
+    src_len = len(src_tokens)
+
+    constrained_softmax_mask = torch.zeros(src_len, len(tgt_dict), dtype=torch.int32) + constrained_softmax_fill_value
+    for i in range(src_len):
+        source_token_idx = src_tokens[i][src_tokens[i] != pad_idx]
+        # If the source token is in dictionary, mask value should be zero; otherwise it is added with mask fill value
+        constrained_softmax_mask[i, source_token_idx] = 0 
+    return
 
 def collate_tokens(values, pad_idx, eos_idx=None, left_pad=False, move_eos_to_beginning=False, pad_to_length=None):
     """Convert a list of 1d tensors into a padded 2d tensor."""
@@ -54,6 +76,33 @@ def collate_tokens(values, pad_idx, eos_idx=None, left_pad=False, move_eos_to_be
         copy_tensor(v, res[i][size - len(v):] if left_pad else res[i][:len(v)])
     return res
 
+def collate_mask(values, mask_pad_value, left_pad=False, move_eos_to_beginning=False):
+    """Convert a list of 2d tensors into a padded 3d tensor. This is specificly impelented
+    for the probabilistic mask padding, each 2d tensor needs to be a square matrix.
+    Args:
+        value (list): list of 2d tensors (dtype: float64)
+        mask_pad_value (float64): the value to be padded in the mask matrix.
+    Return:
+        3D mask of shape `(sample_len, src_tokens_len, src_tokens_len)`
+    """
+    size = max(v.shape[0] for v in values)
+    res = values[0].new(len(values), size, size).fill_(mask_pad_value)
+
+    def copy_tensor(src, dst):
+        assert dst.numel() == src.numel()
+        if move_eos_to_beginning:
+            dst[:, 0] = src[:, -1]
+            dst[:, 1:] = src[:, :-1]
+        else:
+            dst.copy_(src)
+        for i, v in enumerate(values):
+            if left_pad:
+                # This will pad in the top rows and left columns
+                copy_tensor(v, res[i][size - len(v):, size - len(v):])
+            else:
+                # This will pad in the bottom rows and right columns
+                copy_tensor(v, res[i][:len(v), :len(v)])
+        return res
 
 def load_indexed_dataset(path, dictionary=None, dataset_impl=None, combine=False, default='cached'):
     """A helper function for loading indexed datasets.
