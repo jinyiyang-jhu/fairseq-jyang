@@ -33,6 +33,8 @@ class SequenceGenerator(nn.Module):
         search_strategy=None,
         eos=None,
         symbols_to_strip_from_output=None,
+        lm_model=None,
+        lm_weight=1.0
     ):
         """Generates translations of a given source sentence.
 
@@ -93,6 +95,11 @@ class SequenceGenerator(nn.Module):
         self.should_set_src_lengths = hasattr(self.search, 'needs_src_lengths') and self.search.needs_src_lengths
 
         self.model.eval()
+
+        self.lm_model = lm_model
+        self.lm_weight = lm_weight
+        if self.lm_model is not None:
+            self.lm_model.eval()
 
     def cuda(self):
         self.model.cuda()
@@ -292,6 +299,15 @@ class SequenceGenerator(nn.Module):
                 incremental_states,
                 self.temperature,
             )
+
+            if self.lm_model is not None:
+                lm_out = self.lm_model(tokens[:, : step + 1])
+                probs = self.lm_model.get_normalized_probs(
+                    lm_out, log_probs=True, sample=None
+                )
+                probs = probs[:, -1, :] * self.lm_weight
+                lprobs += probs
+
             lprobs[lprobs != lprobs] = torch.tensor(-math.inf).to(lprobs)
 
             lprobs[:, self.pad] = -math.inf  # never select pad
@@ -491,16 +507,10 @@ class SequenceGenerator(nn.Module):
 
         # sort by score descending
         for sent in range(len(finalized)):
-            # make into beam container
-            BCList = [
-                BeamContainer(elem["score"].item(), elem) for elem in finalized[sent]
-            ]
-            BCList.sort()
-            BCList.reverse()
-            finalized[sent] = torch.jit.annotate(
-                List[Dict[str, Tensor]], [x.elem for x in BCList]
-            )
-
+            scores = torch.tensor([float(elem["score"].item()) for elem in finalized[sent]])
+            _, sorted_scores_indices = torch.sort(scores, descending=True)
+            finalized[sent] = [finalized[sent][ssi] for ssi in sorted_scores_indices]
+            finalized[sent] = torch.jit.annotate(List[Dict[str, Tensor]], finalized[sent])
         return finalized
 
     def _prefix_tokens(
@@ -826,9 +836,11 @@ class EnsembleModel(nn.Module):
                     avg_attn = attn
                 else:
                     avg_attn.add_(attn)
+
         avg_probs = torch.logsumexp(torch.stack(log_probs, dim=0), dim=0) - math.log(
             self.models_size
         )
+
         if avg_attn is not None:
             avg_attn.div_(self.models_size)
         return avg_probs, avg_attn
@@ -958,7 +970,7 @@ class EnsembleModelWithAlignment(EnsembleModel):
         avg_attn = None
         for model in self.models:
             decoder_out = model(src_tokens, src_lengths, prev_output_tokens)
-            attn = decoder_out[1]["attn"]
+            attn = decoder_out[1]["attn"][0]
             if avg_attn is None:
                 avg_attn = attn
             else:
@@ -966,17 +978,3 @@ class EnsembleModelWithAlignment(EnsembleModel):
         if len(self.models) > 1:
             avg_attn.div_(len(self.models))
         return avg_attn
-
-
-@torch.jit.script
-class BeamContainer(object):
-    def __init__(self, score: float, elem: Dict[str, Tensor]):
-        self.score = score
-        self.elem = elem
-
-    def __lt__(self, other):
-        # type: (BeamContainer) -> bool
-        # Due to https://github.com/pytorch/pytorch/issues/20388,
-        # this has to use old style type annotations
-        # Match original behavior of sorted function when two scores are equal.
-        return self.score <= other.score

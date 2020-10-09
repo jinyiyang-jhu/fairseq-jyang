@@ -136,7 +136,9 @@ setup(
     install_requires=[
         'cffi',
         'cython',
+        'dataclasses',
         'editdistance',
+        'hydra-core',
         'numpy',
         'regex',
         'sacrebleu',

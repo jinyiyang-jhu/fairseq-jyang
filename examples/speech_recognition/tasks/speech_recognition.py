@@ -10,7 +10,7 @@ import sys
 
 import torch
 from fairseq.data import Dictionary
-from fairseq.tasks import FairseqTask, register_task
+from fairseq.tasks import register_task, LegacyFairseqTask
 from examples.speech_recognition.data import AsrDataset
 from examples.speech_recognition.data.replabels import replabel_symbol
 
@@ -66,7 +66,7 @@ def get_asr_dataset_from_json(data_json_path, tgt_dict):
 
 
 @register_task("speech_recognition")
-class SpeechRecognitionTask(FairseqTask):
+class SpeechRecognitionTask(LegacyFairseqTask):
     """
     Task for training speech recognition model.
     """
@@ -113,7 +113,7 @@ class SpeechRecognitionTask(FairseqTask):
         data_json_path = os.path.join(self.args.data, "{}.json".format(split))
         self.datasets[split] = get_asr_dataset_from_json(data_json_path, self.tgt_dict)
 
-    def build_generator(self, models, args):
+    def build_generator(self, models, args, **unused):
         w2l_decoder = getattr(args, "w2l_decoder", None)
         if w2l_decoder == "viterbi":
             from examples.speech_recognition.w2l_decoder import W2lViterbiDecoder

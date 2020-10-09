@@ -25,15 +25,15 @@ from fairseq.data import (
     SortDataset,
     StripTokenDataset,
 )
+from fairseq.tasks import register_task, LegacyFairseqTask
 from fairseq.data.shorten_dataset import maybe_shorten_dataset
-from fairseq.tasks import FairseqTask, register_task
 
 
 logger = logging.getLogger(__name__)
 
 
 @register_task('sentence_prediction')
-class SentencePredictionTask(FairseqTask):
+class SentencePredictionTask(LegacyFairseqTask):
     """
     Sentence (or sentence pair) prediction (classification or regression) task.
 
@@ -110,7 +110,7 @@ class SentencePredictionTask(FairseqTask):
             logger.info('[label] dictionary: {} types'.format(len(label_dict)))
         else:
             label_dict = data_dict
-        return SentencePredictionTask(args, data_dict, label_dict)
+        return cls(args, data_dict, label_dict)
 
     def load_dataset(self, split, combine=False, **kwargs):
         """Load a given dataset split (e.g., train, valid, test)."""

@@ -6,12 +6,13 @@
 import logging
 import os
 import warnings
-
+from argparse import Namespace
 
 import torch
-
 from fairseq import metrics, search, tokenizer, utils
-from fairseq.data import data_utils, FairseqDataset, iterators, Dictionary
+from fairseq.data import Dictionary, FairseqDataset, data_utils, iterators
+from fairseq.dataclass.utils import gen_parser_from_dataclass
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,12 @@ class FairseqTask(object):
     Datasets, initializing the Model/Criterion and calculating the loss.
     """
 
-    @staticmethod
-    def add_args(parser):
+    @classmethod
+    def add_args(cls, parser):
         """Add task-specific arguments to the parser."""
-        pass
+        dc = getattr(cls, "__dataclass", None)
+        if dc is not None:
+            gen_parser_from_dataclass(parser, dc())
 
     @staticmethod
     def logging_outputs_can_be_summed(criterion) -> bool:
@@ -84,7 +87,7 @@ class FairseqTask(object):
         return cls(args, **kwargs)
 
     def has_sharded_data(self, split):
-        return (os.pathsep in getattr(self.args, 'data', ''))
+        return os.pathsep in getattr(self.args, "data", "")
 
     def load_dataset(self, split, combine=False, **kwargs):
         """Load a given dataset split.
@@ -113,11 +116,7 @@ class FairseqTask(object):
         return self.datasets[split]
 
     def filter_indices_by_size(
-        self,
-        indices,
-        dataset,
-        max_positions=None,
-        ignore_invalid_inputs=False,
+        self, indices, dataset, max_positions=None, ignore_invalid_inputs=False
     ):
         """
         Filter examples that are too large
@@ -135,15 +134,26 @@ class FairseqTask(object):
         indices, ignored = dataset.filter_indices_by_size(indices, max_positions)
         if len(ignored) > 0:
             if not ignore_invalid_inputs:
-                raise Exception((
-                    'Size of sample #{} is invalid (={}) since max_positions={}, '
-                    'skip this example with --skip-invalid-size-inputs-valid-test'
-                ).format(ignored[0], dataset.size(ignored[0]), max_positions))
-            logger.warning((
-                '{} samples have invalid sizes and will be skipped, '
-                'max_positions={}, first few sample ids={}'
-            ).format(len(ignored), max_positions, ignored[:10]))
+                raise Exception(
+                    (
+                        "Size of sample #{} is invalid (={}) since max_positions={}, "
+                        "skip this example with --skip-invalid-size-inputs-valid-test"
+                    ).format(ignored[0], dataset.size(ignored[0]), max_positions)
+                )
+            logger.warning(
+                (
+                    "{} samples have invalid sizes and will be skipped, "
+                    "max_positions={}, first few sample ids={}"
+                ).format(len(ignored), max_positions, ignored[:10])
+            )
         return indices
+
+    def can_reuse_epoch_itr(self, dataset):
+        # We can reuse the epoch iterator across epochs as long as the dataset
+        # hasn't disabled it. We default to ``False`` here, although in practice
+        # this will be ``True`` for most datasets that inherit from
+        # ``FairseqDataset`` due to the base implementation there.
+        return getattr(dataset, "can_reuse_epoch_itr_across_epochs", False)
 
     def get_batch_iterator(
         self,
@@ -158,6 +168,8 @@ class FairseqTask(object):
         shard_id=0,
         num_workers=0,
         epoch=1,
+        data_buffer_size=0,
+        disable_iterator_cache=False,
     ):
         """
         Get an iterator that yields batches of data from the given dataset.
@@ -185,14 +197,20 @@ class FairseqTask(object):
                 (default: 0).
             epoch (int, optional): the epoch to start the iterator from
                 (default: 1).
+            data_buffer_size (int, optional): number of batches to
+                preload (default: 0).
+            disable_iterator_cache (bool, optional): don't cache the
+                EpochBatchIterator (ignores `FairseqTask::can_reuse_epoch_itr`)
+                (default: False).
         Returns:
             ~fairseq.iterators.EpochBatchIterator: a batched iterator over the
                 given dataset split
         """
-        # For default fairseq task, return same iterator across epochs
-        # as datasets are not dynamic, can be overridden in task specific
-        # setting.
-        if dataset in self.dataset_to_epoch_iter:
+        can_reuse_epoch_itr = not disable_iterator_cache and self.can_reuse_epoch_itr(
+            dataset
+        )
+        if can_reuse_epoch_itr and dataset in self.dataset_to_epoch_iter:
+            logger.debug("reusing EpochBatchIterator for epoch {}".format(epoch))
             return self.dataset_to_epoch_iter[dataset]
 
         assert isinstance(dataset, FairseqDataset)
@@ -228,9 +246,12 @@ class FairseqTask(object):
             shard_id=shard_id,
             num_workers=num_workers,
             epoch=epoch,
-            buffer_size=getattr(self.args, 'data_buffer_size', 0),
+            buffer_size=data_buffer_size,
         )
-        self.dataset_to_epoch_iter[dataset] = epoch_iter
+
+        if can_reuse_epoch_itr:
+            self.dataset_to_epoch_iter[dataset] = epoch_iter
+
         return epoch_iter
 
     def build_model(self, args):
@@ -245,8 +266,9 @@ class FairseqTask(object):
             a :class:`~fairseq.models.BaseFairseqModel` instance
         """
         from fairseq import models, quantization_utils
+
         model = models.build_model(args, self)
-        if getattr(args, 'tpu', False):
+        if getattr(args, "tpu", False):
             model.prepare_for_tpu_()
         model = quantization_utils.quantize_model_scalar(model, args)
         return model
@@ -267,8 +289,7 @@ class FairseqTask(object):
         return criterions.build_criterion(args, self)
 
     def build_generator(
-        self, models, args,
-        seq_gen_cls=None, extra_gen_cls_kwargs=None
+        self, models, args, seq_gen_cls=None, extra_gen_cls_kwargs=None
     ):
         if getattr(args, "score_reference", False):
             from fairseq.sequence_scorer import SequenceScorer
@@ -332,7 +353,9 @@ class FairseqTask(object):
                 self.target_dictionary, diversity_rate
             )
         elif constrained:
-            search_strategy = search.LexicallyConstrainedBeamSearch(self.target_dictionary, args.constraints)
+            search_strategy = search.LexicallyConstrainedBeamSearch(
+                self.target_dictionary, args.constraints
+            )
         else:
             search_strategy = search.BeamSearch(self.target_dictionary)
 
@@ -398,12 +421,20 @@ class FairseqTask(object):
             loss, sample_size, logging_output = criterion(model, sample)
         return loss, sample_size, logging_output
 
-    def inference_step(self, generator, models, sample, prefix_tokens=None, constraints=None):
+    def inference_step(
+        self, generator, models, sample, prefix_tokens=None, constraints=None
+    ):
         with torch.no_grad():
-            return generator.generate(models, sample, prefix_tokens=prefix_tokens, constraints=constraints)
+            return generator.generate(
+                models, sample, prefix_tokens=prefix_tokens, constraints=constraints
+            )
 
     def begin_epoch(self, epoch, model):
         """Hook function called before the start of each epoch."""
+        pass
+
+    def begin_valid_epoch(self, epoch, model):
+        """Hook function called before the start of each validation epoch."""
         pass
 
     def aggregate_logging_outputs(self, logging_outputs, criterion):
@@ -467,3 +498,56 @@ class FairseqTask(object):
         """Return the target :class:`~fairseq.data.Dictionary` (if applicable
         for this task)."""
         raise NotImplementedError
+
+
+class LegacyFairseqTask(FairseqTask):
+    def __init__(self, args: Namespace):
+        self.args = args
+        self.datasets = {}
+        self.dataset_to_epoch_iter = {}
+
+    @classmethod
+    def setup_task(cls, args: Namespace, **kwargs):
+        """Setup the task (e.g., load dictionaries).
+
+        Args:
+            args (argparse.Namespace): parsed command-line arguments
+        """
+        return cls(args, **kwargs)
+
+    def has_sharded_data(self, split):
+        return os.pathsep in getattr(self.args, "data", "")
+
+    def build_model(self, args: Namespace):
+        """
+        Build the :class:`~fairseq.models.BaseFairseqModel` instance for this
+        task.
+
+        Args:
+            args (argparse.Namespace): parsed command-line arguments
+
+        Returns:
+            a :class:`~fairseq.models.BaseFairseqModel` instance
+        """
+        from fairseq import models, quantization_utils
+
+        model = models.build_model(args, self)
+        if getattr(args, "tpu", False):
+            model.prepare_for_tpu_()
+        model = quantization_utils.quantize_model_scalar(model, args)
+        return model
+
+    def build_criterion(self, args: Namespace):
+        """
+        Build the :class:`~fairseq.criterions.FairseqCriterion` instance for
+        this task.
+
+        Args:
+            args (argparse.Namespace): parsed command-line arguments
+
+        Returns:
+            a :class:`~fairseq.criterions.FairseqCriterion` instance
+        """
+        from fairseq import criterions
+
+        return criterions.build_criterion(args, self)

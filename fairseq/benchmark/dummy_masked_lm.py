@@ -9,14 +9,14 @@ import numpy as np
 import torch
 
 from fairseq.data import Dictionary, FairseqDataset
-from fairseq.tasks import FairseqTask, register_task
+from fairseq.tasks import register_task, LegacyFairseqTask
 
 
 logger = logging.getLogger(__name__)
 
 
 @register_task('dummy_masked_lm')
-class DummyMaskedLMTask(FairseqTask):
+class DummyMaskedLMTask(LegacyFairseqTask):
 
     @staticmethod
     def add_args(parser):
@@ -30,7 +30,6 @@ class DummyMaskedLMTask(FairseqTask):
     def __init__(self, args, dictionary):
         super().__init__(args)
         self.dictionary = dictionary
-        self.seed = args.seed
 
         # add mask token
         self.mask_idx = dictionary.add_symbol('<mask>')
@@ -62,8 +61,8 @@ class DummyMaskedLMTask(FairseqTask):
         Args:
             split (str): name of the split (e.g., train, valid, test)
         """
-        if self.args.max_sentences is not None:
-            bsz = self.args.max_sentences
+        if self.args.batch_size is not None:
+            bsz = self.args.batch_size
         else:
             bsz = max(1, self.args.max_tokens // self.args.tokens_per_sample)
         self.datasets[split] = DummyDataset(

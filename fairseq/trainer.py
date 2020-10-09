@@ -64,8 +64,13 @@ class Trainer(object):
         elif args.bf16:
             self._criterion = self._criterion.to(dtype=torch.bfloat16)
             self._model = self._model.to(dtype=torch.bfloat16)
-        self._criterion = self._criterion.to(device=self.device)
-        self._model = self._model.to(device=self.device)
+        if not args.pipeline_model_parallel:
+            self._criterion = self._criterion.to(device=self.device)
+            self._model = self._model.to(device=self.device)
+        self.pipeline_model_parallel = args.pipeline_model_parallel
+        self.last_device = None
+        if self.cuda and self.pipeline_model_parallel:
+            self.last_device = torch.device(args.pipeline_devices[-1])
 
         # check that shared parameters are preserved after device transfer
         for shared_param in shared_params:
@@ -76,7 +81,7 @@ class Trainer(object):
                 )
                 _set_module_by_path(self._model, path, ref)
 
-        self._dummy_batch = "DUMMY"  # indicates we don't have a dummy batch at first
+        self._dummy_batch = None  # indicates we don't have a dummy batch at first
         self._lr_scheduler = None
         self._num_updates = 0
         self._num_xla_compiles = 0  # for TPUs
@@ -224,7 +229,7 @@ class Trainer(object):
                         "Please use --fp16-no-flatten-grads"
                 )
             else:
-                optim.shard_(self.args, self._optimizer)
+                optim.shard_(self.args, self._optimizer, self.data_parallel_process_group)
 
         # We should initialize the learning rate scheduler immediately after
         # building the optimizer, so that the initial learning rate is set.
@@ -339,6 +344,7 @@ class Trainer(object):
         load_dataset=True,
         data_selector=None,
         shard_batch_itr=True,
+        disable_iterator_cache=False,
     ):
         """Return an EpochBatchIterator over the training set for a given epoch."""
         if load_dataset:
@@ -349,10 +355,10 @@ class Trainer(object):
                 combine=combine,
                 data_selector=data_selector,
             )
-        return self.task.get_batch_iterator(
+        batch_iterator = self.task.get_batch_iterator(
             dataset=self.task.dataset(self.args.train_subset),
             max_tokens=self.args.max_tokens,
-            max_sentences=self.args.max_sentences,
+            max_sentences=self.args.batch_size,
             max_positions=utils.resolve_max_positions(
                 self.task.max_positions(),
                 self.model.max_positions(),
@@ -365,17 +371,22 @@ class Trainer(object):
             shard_id=self.data_parallel_rank if shard_batch_itr else 0,
             num_workers=self.args.num_workers,
             epoch=epoch,
+            data_buffer_size=self.args.data_buffer_size,
+            disable_iterator_cache=disable_iterator_cache,
         )
+        self.reset_dummy_batch(batch_iterator.first_batch)
+        return batch_iterator
 
     def get_valid_iterator(
         self,
         subset,
+        disable_iterator_cache=False,
     ):
         """Return an EpochBatchIterator over given validation subset for a given epoch."""
-        return self.task.get_batch_iterator(
+        batch_iterator = self.task.get_batch_iterator(
             dataset=self.task.dataset(subset),
             max_tokens=self.args.max_tokens_valid,
-            max_sentences=self.args.max_sentences_valid,
+            max_sentences=self.args.batch_size_valid,
             max_positions=utils.resolve_max_positions(
                 self.task.max_positions(),
                 self.model.max_positions(),
@@ -386,7 +397,11 @@ class Trainer(object):
             num_shards=self.data_parallel_world_size,
             shard_id=self.data_parallel_rank,
             num_workers=self.args.num_workers,
+            data_buffer_size=self.args.data_buffer_size,
+            disable_iterator_cache=disable_iterator_cache,
         )
+        self.reset_dummy_batch(batch_iterator.first_batch)
+        return batch_iterator
 
     def begin_epoch(self, epoch):
         """Called at the beginning of each epoch."""
@@ -404,12 +419,18 @@ class Trainer(object):
             xm.rendezvous('begin_epoch')  # wait for all workers
             xm.mark_step()
 
+    def begin_valid_epoch(self, epoch):
+        """Called at the beginning of each validation epoch."""
+
+        # task specific setup per validation epoch
+        self.task.begin_valid_epoch(epoch, self.get_model())
+
+    def reset_dummy_batch(self, batch):
+        self._dummy_batch = batch
+
     @metrics.aggregate("train")
     def train_step(self, samples, raise_oom=False):
         """Do forward, backward and parameter update."""
-        if self._dummy_batch == "DUMMY":
-            self._dummy_batch = samples[0]
-
         self._set_seed()
         self.model.train()
         self.criterion.train()
@@ -544,10 +565,11 @@ class Trainer(object):
             with torch.autograd.profiler.record_function("optimizer"):
                 # take an optimization step
                 self.optimizer.step()
+
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print
             # out where it fails
-            with NanDetector(self.model):
+            with NanDetector(self.get_model()):
                 self.task.train_step(
                     sample, self.model, self.criterion, self.optimizer, self.get_num_updates(),
                     ignore_grad=False
@@ -583,6 +605,17 @@ class Trainer(object):
                 # this causes wps to be misreported when log_interval > 1
                 logging_output = {}
                 if self.get_num_updates() % self.args.log_interval == 0:
+                    # log memory usage
+                    mem_info = xm.get_memory_info(self.device)
+                    gb_free = mem_info['kb_free'] / 1024 / 1024
+                    gb_total = mem_info['kb_total'] / 1024 / 1024
+                    metrics.log_scalar(
+                        'gb_free', gb_free, priority=1500, round=1, weight=0,
+                    )
+                    metrics.log_scalar(
+                        'gb_total', gb_total, priority=1600, round=1, weight=0,
+                    )
+
                     logging_output = self._reduce_and_log_stats(
                         logging_outputs, sample_size, grad_norm,
                     )
@@ -618,14 +651,11 @@ class Trainer(object):
             )
 
         metrics.log_stop_time("train_wall")
-
         return logging_output
 
     @metrics.aggregate("valid")
     def valid_step(self, sample, raise_oom=False):
         """Do forward pass in evaluation mode."""
-        if self._dummy_batch == "DUMMY":
-            self._dummy_batch = sample
         if self.tpu:
             import torch_xla.core.xla_model as xm
             xm.rendezvous('valid_step')  # wait for all workers
@@ -774,18 +804,15 @@ class Trainer(object):
         return time.time() - self._start_time + self._previous_training_time
 
     def _prepare_sample(self, sample):
-        if sample == "DUMMY":
-            raise Exception(
-                "Trying to use an uninitialized 'dummy' batch. This usually indicates "
-                "that the total number of batches is smaller than the number of "
-                "participating GPUs. Try reducing the batch size or using fewer GPUs."
-            )
-
         if sample is None or len(sample) == 0:
             return None
 
         if self.cuda:
-            sample = utils.move_to_cuda(sample)
+            if self.pipeline_model_parallel:
+                if 'target' in sample:
+                    sample['target'] = utils.move_to_cuda(sample['target'], device=self.last_device)
+            else:
+                sample = utils.move_to_cuda(sample)
 
         def apply_half(t):
             if t.dtype is torch.float32:
@@ -990,19 +1017,18 @@ class Trainer(object):
                         del logging_output[key_to_delete]
             return logging_output
 
-    def _check_xla_compilation(self, message=None):
+    def _check_xla_compilation(self):
         import torch_xla.debug.metrics as met
         compile_stats = met.metric_data("CompileTime")
         if compile_stats is None:
             return
         num_xla_compiles = compile_stats[0]
         if num_xla_compiles > self._num_xla_compiles:
-            if message is None:
-                message = (
-                    "too many of these can lead to slow training, "
-                    "but we expect a few in the beginning"
-                )
-            logging.info("NOTE: XLA compilation detected; {}".format(message))
+            logger.warning(
+                "XLA compilation detected on device #{}; too many of these can lead "
+                "to slow training, but we expect a few in the beginning"
+                .format(self.args.distributed_rank)
+            )
         self._num_xla_compiles = num_xla_compiles
 
 

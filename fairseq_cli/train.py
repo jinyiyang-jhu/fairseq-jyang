@@ -43,8 +43,8 @@ def main(args):
     utils.import_user_module(args)
 
     assert (
-        args.max_tokens is not None or args.max_sentences is not None
-    ), "Must specify batch size either with --max-tokens or --max-sentences"
+        args.max_tokens is not None or args.batch_size is not None
+    ), "Must specify batch size either with --max-tokens or --batch-size"
 
     metrics.reset()
 
@@ -101,13 +101,18 @@ def main(args):
     )
     logger.info(
         "max tokens per GPU = {} and max sentences per GPU = {}".format(
-            args.max_tokens, args.max_sentences
+            args.max_tokens, args.batch_size
         )
     )
 
     # Load the latest checkpoint if one is available and restore the
     # corresponding train iterator
-    extra_state, epoch_itr = checkpoint_utils.load_checkpoint(args, trainer)
+    extra_state, epoch_itr = checkpoint_utils.load_checkpoint(
+        args,
+        trainer,
+        # don't cache epoch iterators for sharded datasets
+        disable_iterator_cache=task.has_sharded_data("train"),
+    )
 
     # Train until the learning rate gets too small
     max_epoch = args.max_epoch or math.inf
@@ -128,6 +133,8 @@ def main(args):
             epoch_itr.next_epoch_idx,
             # sharded data: get train iterator for next epoch
             load_dataset=task.has_sharded_data("train"),
+            # don't cache epoch iterators for sharded datasets
+            disable_iterator_cache=task.has_sharded_data("train"),
         )
     train_meter.stop()
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
@@ -190,6 +197,7 @@ def train(args, trainer, task, epoch_itr):
 
     trainer.begin_epoch(epoch_itr.epoch)
 
+    valid_losses = [None]
     valid_subsets = args.valid_subset.split(",")
     should_stop = False
     num_updates = trainer.get_num_updates()
@@ -287,6 +295,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
         # set fixed seed for every validation
         utils.set_torch_seed(args.fixed_validation_seed)
 
+    trainer.begin_valid_epoch(epoch_itr.epoch)
     valid_losses = []
     for subset in subsets:
         logger.info('begin validation on "{}" subset'.format(subset))

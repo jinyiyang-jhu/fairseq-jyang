@@ -8,10 +8,10 @@ import json
 import itertools
 import logging
 import os
-
+from fairseq import options
 import numpy as np
 
-from fairseq import metrics, options, utils
+from fairseq import metrics, utils
 from fairseq.data import (
     AppendTokenDataset,
     ConcatDataset,
@@ -24,7 +24,7 @@ from fairseq.data import (
     TruncateDataset,
 )
 
-from fairseq.tasks import FairseqTask, register_task
+from fairseq.tasks import register_task, LegacyFairseqTask
 
 EVAL_BLEU_ORDER = 4
 
@@ -42,6 +42,7 @@ def load_langpair_dataset(
     truncate_source=False, append_source_id=False,
     num_buckets=0,
     shuffle=True,
+    pad_to_multiple=1,
 ):
 
     def split_exists(split, src, tgt, lang, data_path):
@@ -129,11 +130,12 @@ def load_langpair_dataset(
         align_dataset=align_dataset, eos=eos,
         num_buckets=num_buckets,
         shuffle=shuffle,
+        pad_to_multiple=pad_to_multiple,
     )
 
 
 @register_task('translation')
-class TranslationTask(FairseqTask):
+class TranslationTask(LegacyFairseqTask):
     """
     Translate from one (source) language to another (target) language.
 
@@ -218,8 +220,8 @@ class TranslationTask(FairseqTask):
         Args:
             args (argparse.Namespace): parsed command-line arguments
         """
-        args.left_pad_source = options.eval_bool(args.left_pad_source)
-        args.left_pad_target = options.eval_bool(args.left_pad_target)
+        args.left_pad_source = utils.eval_bool(args.left_pad_source)
+        args.left_pad_target = utils.eval_bool(args.left_pad_target)
 
         paths = utils.split_paths(args.data)
         assert len(paths) > 0
@@ -268,6 +270,7 @@ class TranslationTask(FairseqTask):
             truncate_source=self.args.truncate_source,
             num_buckets=self.args.num_batch_buckets,
             shuffle=(split != 'test'),
+            pad_to_multiple=self.args.required_seq_len_multiple,
         )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths, constraints=None):
