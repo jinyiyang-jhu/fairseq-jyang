@@ -31,7 +31,7 @@ def infer_language_pair(path):
             return parts[1].split('-')
     return src, dst
 
-def create_constrained_softmax_mask(src_tokens, tgt_dict, pad_idx, constrained_softmax_fill_value=None)
+def create_constrained_softmax_mask(src_tokens, tgt_dict, pad_idx, constrained_softmax_fill_value=None):
     """Creat a mask for each sentence in a batch.
     Args:
         src_tokens (LongTensor): source tokens, shape `(sample_len, src_tokens_len)`

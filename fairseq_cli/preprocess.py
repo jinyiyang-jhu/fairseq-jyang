@@ -239,7 +239,7 @@ def main(args):
 
     def make_all(lang, vocab, append_eos=True):
         if args.trainpref:
-            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.num_workers, append_eos=append_eos)
+            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers, append_eos=append_eos)
         if args.validpref:
             for k, validpref in enumerate(args.validpref.split(",")):
                 outprefix = "valid{}".format(k) if k > 0 else "valid"
