@@ -1,0 +1,2 @@
+FAIRSEQ_PATH=$PWD/../../fairseq
+export PATH=$FAIRSEQ_PATH:$FAIRSEQ_PATH/utils:$PWD:$PATH
