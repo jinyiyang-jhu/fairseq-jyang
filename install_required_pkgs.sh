@@ -13,6 +13,10 @@ pip install subword_nmt
 pip install tqdm
 pip install protobuf
 pip install graphviz
+pip install dataclasses
+pip install omegaconf
+pip install hydra
+pip install hydra-core
 editdistance
 
 # Optional
