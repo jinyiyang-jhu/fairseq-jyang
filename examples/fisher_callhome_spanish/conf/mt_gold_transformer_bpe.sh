@@ -27,7 +27,7 @@ patience=0
 dropout=0.1
 
 max_epoch=100
-lr=1.0
+lr=0.0005
 init_lr=1e-5
 min_lr=1e-07
 warmup_updates=8000
