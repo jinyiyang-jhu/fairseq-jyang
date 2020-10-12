@@ -4,6 +4,7 @@ arch="transformer"
 task="translation"
 share_embeddings="" # if want to use this option, add "--share-all-embeddings" in the train script.
 train_num_workers=40
+save_interval=1
 
 # encoder
 encoder_layers=6
@@ -33,7 +34,7 @@ warmup_updates=8000
 weight_decay=0.0001
 #length_norm_loss=
 #batch_size=96 # for BPE
-max_tokens=9600
+max_tokens=4000
 curriculum=0 # don't shuffle the first N epochs
 
 criterion="label_smoothed_cross_entropy"

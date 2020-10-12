@@ -46,6 +46,6 @@ if [ $stage -le 0 ]; then
         --label-smoothing $label_smoothing \
         --attention-dropout $transformer_attn_dropout \
         --save-dir $exp_dir/checkpoints \
-        --save-interval 5 \
+        --save-interval $save_interval \
         --log-format json || exit 1
 fi
