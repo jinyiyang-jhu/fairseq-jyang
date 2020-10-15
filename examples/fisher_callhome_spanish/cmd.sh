@@ -15,6 +15,6 @@
 #export decode_cmd="run.pl --mem 4G"
 
 # JHU setup (copy queue-freegpu.pl from ESPnet into utils/)
-export train_cmd="queue.pl --mem 4G"
+export train_cmd="queue.pl --mem 4G -l hostname=b1[1235678]*|c*"
 export cuda_cmd="queue-freegpu.pl --mem 8G --gpu 2 --config conf/gpu.conf"
-export decode_cmd="queue.pl --mem 4G"
+export decode_cmd="queue.pl --mem 4G -l hostname=b1[1235678]*|c*"
