@@ -3,8 +3,11 @@
 # probabilistic mask matrices for transformer.
 # To be run from examples/asr_correction.
 # Make sure to run in pytorch_p36 env.
- 
+
+stage=-1
 mask_direction="None" # "fwd", "bwd" or "None"
+. parse_options.sh || exit 1;
+
 lat_dir=$1 #/home/ec2-user/workspace/data/lattice_toy/lattice
 new_lat_dir=$2 #/home/ec2-user/workspace/data/lattice_toy/lattice
 bpe_code=$3 #/home/ec2-user/workspace/data/data_filtered_long_utts/bpe/code_file.txt
@@ -12,24 +15,22 @@ bpe_vocab=$4 #/home/ec2-user/workspace/data/data_filtered_long_utts/bpe/vocab.al
  
 lat_plf_dir=$new_lat_dir/plf
 lat_processed=$new_lat_dir/plf_processed/
- 
-# Lattice to FSTs
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-mkdir -p $lat_plf_dir || exit 1
-echo "`date`: converting lattices to FSTs"
-bash $SCRIPT_DIR/lattice2FST.sh $lat_dir $lat_plf_dir
- 
-##################### The codes in this block are specifically set for my machine ##################
-##################### Comment it if you have your path set properly already ########################
-#source .bashrc
-#source deactivate pytorch_p36
-#source activate pytorch_p36
-##################### The codes in this block are specifically set for my machine ##################
- 
+
+if [ $stage -le 0 ]; then
+  echo "$(date -u): converting lattices to FSTs"
+  bash local/lattice_preprocess/lattice2FST.sh $lat_dir $lat_plf_dir $word_map || exit 1;
+fi
+
+if [ $stage -le 1 ]; then
 # Edge lattice to node lattice
-echo "`date`: converting PLF to node PLFs"
-/home/ec2-user/anaconda3/envs/pytorch_p36/bin/python3.6 $SCRIPT_DIR/preproc-lattice.py $lat_plf_dir/plf.txt $lat_plf_dir/plf.node.tmp.txt
- 
+  echo "`date`: converting PLF to node PLFs"
+  nj=$(ls $lat_plf_dir/plf.*.txt | wc -l)
+  $cmd JOB=1:$nj python local/lattice_preprocess/preproc-lattice.py \
+    $lat_plf_dir/plf.JOB.txt $lat_plf_dir/plf.node.JOB.txt
+fi
+# TODO: handle uttid in preproc-lattice.py
+# TODO: handle uttid in compute_attn_pos_enc.py 
+
 # Filter the empty lattices in plf.node.tmp.txt, files not in the new selected_utt.index will be later removed
 # from transcripts and asr 1best
 grep -v "\[\]" $lat_plf_dir/plf.node.tmp.txt > $lat_plf_dir/plf.node.txt
