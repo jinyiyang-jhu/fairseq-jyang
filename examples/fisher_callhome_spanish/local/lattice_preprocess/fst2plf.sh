@@ -10,16 +10,15 @@ eos=$3
     while read -r; do
       if [[ $REPLY =~ ^$ ]]; then
         plf=$(echo "$block" |\
-          fstcompile --arc_type=log | \
-          fstpush --push_weights --remove_total_weight | \
-          fstconcat $sos - | \
-          fstconcat - $eos | \
-          fstrmepsilon | \
-          fstminimize | \
-          fsttopsort | \
-          fstprint --isymbols=$symtable --osymbols=$symtable | \
+          fstcompile --arc_type=log |\
+          fstpush --push_weights --remove_total_weight |\
+          fstconcat $sos - | fstconcat - $eos |\
+          fstrmepsilon |\
+          fstminimize |\
+          fsttopsort |\
+          fstprint --isymbols=$systab --osymbols=$systab |\
           perl local/lattice_preprocess/txt2plf.pl)
-        echo -e "$uttid $plf"
+        echo -e "$uttid\t$plf"
         block=""
         uttid=""
       elif [ "$uttid" == "" ]; then

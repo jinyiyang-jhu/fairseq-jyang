@@ -20,8 +20,10 @@ class LatticeFromPlfExtractor:
          with open(out_file, 'w') as f1:
            for line in tqdm(f):
                line = line.strip()
+               tokens = line.split('\t')
+               uttid = tokens.pop(0)
                graph = LatticeFromPlfExtractor._Lattice()
-               graph.read_plf_line(line, lat_weight_scale=lat_weight_scale)
+               graph.read_plf_line(tokens[0], lat_weight_scale=lat_weight_scale)
                #graph.insert_initial_node()
                #graph.insert_final_node()
                graph.forward()
@@ -30,7 +32,7 @@ class LatticeFromPlfExtractor:
                    graph2.insert_initial_node()
                #graph2.resolve_final_nodes()
                serial = graph2.serialize_to_string()
-               print(serial, file=f1)
+               print(uttid + '\t' + serial, file=f1)
  
    class _Lattice(object):
  
@@ -166,7 +168,6 @@ class LatticeFromPlfExtractor:
 if __name__ == "__main__":
    """
    plf = "((('<s>', 0, 1),),(('YES', 0, 1),),(('I\\'D', 0, 1),),(('LIKE', 0, 1),),(('TO', 0, 1),),(('FIND', 0, 1),),(('A', 0, 1),),(('FLIGHT', 0, 1),),(('FROM', 0, 1),),(('MEMPHIS', 0, 1),),(('TO', 0, 1),),(('ALMA', 0, 1),),(('<UNK>', 0, 1),),(('PUMPING', -1.81475937, 1),('</s>', -0.177784383, 4),),(('AND', 0, 1),),(('<UNK>', 0, 1),),(('</s>', 0, 1),),)"
-   graph = LatticeFromPlfExtractor._Lattice()
    graph.read_plf_line(plf)
    graph.forward()
    graph2 = LatticeFromPlfExtractor._Lattice.convert_to_node_labeled_lattice(graph)
