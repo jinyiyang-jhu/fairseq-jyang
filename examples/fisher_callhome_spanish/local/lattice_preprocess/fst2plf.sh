@@ -22,7 +22,7 @@ eos=$3
         block=""
         uttid=""
       elif [ "$uttid" == "" ]; then
-        uttid="$REPLY"
+        uttid=$(echo "$REPLY" | sed -e 's/[[:space:]]*$//')
       else
         block+=$REPLY$'\n'
       fi
