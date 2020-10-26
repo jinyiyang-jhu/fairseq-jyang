@@ -15,7 +15,6 @@ import ast
 from typing import List, Optional, Sequence, Union
 import numpy as np
 from scipy import sparse
-from tqdm import tqdm
  
 LOG_ZERO = -1e10
  
