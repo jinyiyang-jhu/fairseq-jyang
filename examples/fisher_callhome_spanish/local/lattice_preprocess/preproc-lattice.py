@@ -11,14 +11,14 @@ import math
 import argparse
 import re
 import csv
- 
-from tqdm import tqdm
- 
+from scipy.special import logsumexp
+import numpy as np
+  
 class LatticeFromPlfExtractor:
    def extract_to(self, lattice_file, out_file, lat_weight_scale=1.0):
        with open(lattice_file) as f:
          with open(out_file, 'w') as f1:
-           for line in tqdm(f):
+           for line in f.readlines():
                line = line.strip()
                tokens = line.split('\t')
                uttid = tokens.pop(0)
@@ -32,7 +32,8 @@ class LatticeFromPlfExtractor:
                    graph2.insert_initial_node()
                #graph2.resolve_final_nodes()
                serial = graph2.serialize_to_string()
-               print(uttid + '\t' + serial, file=f1)
+               if serial:
+                   print(uttid + '\t' + serial, file=f1)
  
    class _Lattice(object):
  
@@ -54,7 +55,10 @@ class LatticeFromPlfExtractor:
                to_id = node_ids[toNode]
                numbered_edges.append((from_id, to_id))
            edge_str = str(numbered_edges)
-           return node_str + "," + edge_str
+           if len(node_lst) != 0:
+               return node_str + "," + edge_str
+           else:
+               return None
  
        def insert_initial_node(self):
            initial_node = LatticeFromPlfExtractor._LatticeLabel(label=("<s>", 0.0, 0.0, 0.0))
@@ -87,25 +91,27 @@ class LatticeFromPlfExtractor:
            self.nodes[0].marginal_log_prob = 0.0
            for edge in self.edges:
                from_node, to_node, edge_label = edge
-               prev_sum = 0.0  # incomplete P(toNode)
+               prev_sum_log = -np.inf
                if not hasattr(to_node, 'marginal_log_prob'):
                    to_node.marginal_log_prob = 0.0
                else:
-                   prev_sum = math.exp(to_node.marginal_log_prob)
-               fwd_weight = math.exp(edge_label.label[1])  # lattice weight normalized across outgoing edges
-               marginal_link_prob = math.exp(from_node.marginal_log_prob) * fwd_weight  # P(fromNode, toNode)
-               to_node.marginal_log_prob = math.log(prev_sum + marginal_link_prob)  # (partially) completed P(toNode)
+                   prev_sum_log = to_node.marginal_log_prob
+               fwd_link_log_prob = edge_label.label[1]
+               marginal_link_log_prob = from_node.marginal_log_prob + fwd_link_log_prob
+               to_node.marginal_log_prob = logsumexp([prev_sum_log, marginal_link_log_prob])
                to_node.label = (to_node.marginal_log_prob,)
-               edge_label.label = tuple(list(edge_label.label) + [min(0.0, math.log(marginal_link_prob))])
+               edge_label.label = tuple(list(edge_label.label) + [min(0.0, marginal_link_log_prob)])
            for node in self.nodes:
                incoming_edges = [edge for edge in self.edges if edge[1] == node]
-               # incoming_sum = sum([math.exp(edge[0].marginal_log_prob) for edge in incoming_edges])
-               incoming_sum = sum([math.exp(edge[2].label[2]) for edge in incoming_edges])
+               #print([edge[2].label[2] for edge in incoming_edges])
+               if len(incoming_edges) == 0:
+                   incoming_sum_log = -np.inf
+               else:
+                   incoming_sum_log = logsumexp([edge[2].label[2] for edge in incoming_edges])
+               #incoming_sum_log = np.log(sum([math.exp(edge[2].label[2]) for edge in incoming_edges]))
                for edge in incoming_edges:
                    from_node, to_node, edge_label = edge
-                   # bwd_weight_log = min(0.0, edge[0].marginal_log_prob - math.log(incoming_sum))
-                   bwd_weight_log = min(0.0, edge_label.label[2] - math.log(incoming_sum))
-                   # bwd_weight_log = min(0.0, edge[0].marginal_log_prob + edge_label.label[1] - node.marginal_log_prob)
+                   bwd_weight_log = min(0.0, edge_label.label[2] - incoming_sum_log)
                    edge_label.label = tuple(list(edge_label.label) + [bwd_weight_log])
  
        def resolve_final_nodes(self):
@@ -128,7 +134,6 @@ class LatticeFromPlfExtractor:
            parenth_depth = 0
            plf_nodes = []
            plf_edges = []
- 
            for token in re.split("([()])", line):
                if len(token.strip()) > 0 and token.strip() != ",":
                    if token == "(":
