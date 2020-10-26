@@ -17,6 +17,8 @@ pip install dataclasses
 pip install omegaconf
 pip install hydra
 pip install hydra-core
+pip install numpy
+pip install scipy
 editdistance
 
 # Optional
