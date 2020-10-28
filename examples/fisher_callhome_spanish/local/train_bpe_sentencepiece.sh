@@ -1,5 +1,6 @@
 #!/bin/bash
 # This script performs BPE tokenization of given input text, with given BPE model.
+# The BPE model is trained with sentencepiece toolkit.
 # Input file has format:
 # <uttid> whom aim i speaking
 # Output file has format:
@@ -26,7 +27,8 @@ if [ ! -f ${bpemodel}.model ]; then
     for f in $train_text $user_defined_symbols; do
         [ ! -f $f ] && (echo "No such file: $f" && exit 1)
     done
-    spm_train --user_defined_symbols='$(tr "\n" "," < ${user_defined_syms_file})' \
+    #spm_train --user_defined_symbols="<s>" --input=$train_text \
+    spm_train --user_defined_symbols="$(tr "\n" "," < ${user_defined_syms_file})" \
     --input=$train_text \
     --vocab_size=${nbpe} --model_type=bpe \
     --model_prefix=${bpemodel} \
@@ -34,4 +36,3 @@ if [ ! -f ${bpemodel}.model ]; then
     --character_coverage=1.0 || exit 1;
 fi
 
-echo "$(date -u) Successfully convert the $inputfile to BPE tokens"

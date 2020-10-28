@@ -24,7 +24,7 @@ exp_dir=exp/gold_mt
 nbpe=1000
 case="lc.rm"
 bpe_train_text=exp/espnet_bpe_model/input.txt
-bpe_model_dir=exp/bpe_es_en_lc
+bpe_code_dir=exp/bpe_es_en_lc_subword_nmt
 non_lan_syms=data/lang/en_es_non_lang_syms_lc.txt
 
 
@@ -35,8 +35,7 @@ fi
 
 if [ $stage -le 1 ]; then
     echo "$(date -u) => preprocessing datasets"
-    bpemodel=$bpe_model_dir/bpe_${nbpe}_${case}.model
-    bash local/preprocess_text.sh $bpemodel $original_datadir $orginal_bpedir $exp_dir
+    bash local/preprocess_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
 fi
 
 if [ $stage -le 2 ]; then

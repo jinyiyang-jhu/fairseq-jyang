@@ -5,19 +5,19 @@
 stage=-1
 source_lang="es"
 target_lang="en"
-case=".lc.rm"
+case="lc.rm"
 preprocess_num_workers=40
 
 [ -f ./path.sh ] && . ./path.sh;
 . parse_options.sh || exit 1;
 
 if [ $# -ne 4 ]; then
-    echo "Usage: $0 <bpe-model> <input-data-dir> <output-data-dir> <exp-dir>"
+    echo "Usage: $0 <bpe-model-dir> <input-data-dir> <output-data-dir> <exp-dir>"
     echo "E.g.: $0 exp/bpe_es_en_lc/bpe_1000.lc.model data/espnet_prepared data/gold_mt exp/gold_mt"
     exit 1
 fi
 
-bpemodel=$1
+bpe_model_dir=$1
 idata_dir=$2 # contains "train train_dev fisher_dev fisher_dev2 fisher_test callhome_devtest callhome_evltest"
 odata_dir=$3
 exp_dir=$4
@@ -25,12 +25,14 @@ exp_dir=$4
 bpedir=$odata_dir/bpe
 
 if [ $stage -le 0 ]; then
+    bpemodel=$bpe_model_dir/bpe_1000_${case}.model
+    [ ! -f $bpemodel ] && echo "$bpemodel does not exists in $bpe_model_dir !" && exit 1;
     [ -d $bpedir ] || mkdir $bpedir || exit 1
     for d in train train_dev fisher_dev fisher_dev2 fisher_test callhome_devtest callhome_evltest; do
         if [ -d $idata_dir/$d.$lan ]; then
             echo "$(date -u) Processing BPE tokenization for dataset $d"
             for lan in $source_lang $target_lang; do
-                input_file=$idata_dir/$d.$lan/text${case}
+                input_file=$idata_dir/$d.$lan/text.${case}
                 cut -f 2- -d " " $input_file |\
                     spm_encode --model=$bpemodel --output_format=piece |\
                     cut -f 2- -d " " > $bpedir/$d.$lan || exit 1;
