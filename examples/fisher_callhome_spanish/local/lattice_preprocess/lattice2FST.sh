@@ -62,5 +62,7 @@ for prefix in sos eos; do
 done
 $cmd JOB=1:$nj $plf_dir/log/lat2fst.JOB.log \
   lattice-to-fst --lm-scale=1.0 --acoustic-scale=$acoustic_scale ark:"gunzip -c $lat_dir/lat.JOB.gz|" ark,t:- \| \
-    bash $SCRIPT_DIR/fst2plf.sh $symtable $plf_dir/sos.fst $plf_dir/eos.fst '>' $plf_dir/plf.JOB.txt || exit 1;
+    bash $SCRIPT_DIR/fst2plf.sh $symtable $plf_dir/sos.fst $plf_dir/eos.fst \| \
+    sed -e 's/<unk>/[oov]/g' \| \
+    '>' $plf_dir/plf.JOB.txt || exit 1;
 echo "Succeeded in converting lattice to PLF format"
