@@ -55,3 +55,4 @@ if [ $stage -le 2 ]; then
         --bpe_code $bpe_code_dir/code.txt \
         --bpe_vocab $bpe_code_dir/vocab.all.txt \
         --bpe_gloss $bpe_code_dir/glossaries.txt || exit 1
+fi
