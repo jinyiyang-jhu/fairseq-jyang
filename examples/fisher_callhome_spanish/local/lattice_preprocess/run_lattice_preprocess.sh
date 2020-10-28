@@ -14,17 +14,15 @@ mask_direction="None" # "fwd", "bwd" or "None"
 
 # Use Kaldi tools to process lattice
 if [ $# -ne 4 ]; then
-    echo "Usage : $0 <old-lat-dir> <new-plf-dir> <word2int> <bpe-model>"
-    echo "E.g.: $0 data/lattice data/plf data/lang/words.txt data/bpe/train.en.model"
+    echo "Usage : $0 <old-lat-dir> <new-plf-dir> <word2int> <bpe-code-dir>"
+    echo "E.g.: $0 data/lattice data/plf data/lang/words.txt exp/bpe_es_en_lc_subword_nmt"
     exit 1
 fi
 
 lat_dir=$1
 lat_plf_dir=$2
 word_map=$3
-bpe_model=$4
-#bpe_code=$3 #/home/ec2-user/workspace/data/data_filtered_long_utts/bpe/code_file.txt
-#bpe_vocab=$4 #/home/ec2-user/workspace/data/data_filtered_long_utts/bpe/vocab.all.txt
+bpe_code_dir=$4
 
 lat_processed=$new_lat_dir/plf_processed/
 
@@ -54,5 +52,6 @@ if [ $stage -le 2 ]; then
         --lat_pos_file $lat_processed/plf.pos.JOB.npz \
         --lat_prob_mask $lat_processed/plf.mask.JOB.npz \
         --prob_mask_direction $mask_direction \
-        --bpe_code $bpe_code \
-        --bpe_vocab $bpe_vocab || exit 1
+        --bpe_code $bpe_code_dir/code.txt \
+        --bpe_vocab $bpe_code_dir/vocab.all.txt \
+        --bpe_gloss $bpe_code_dir/glossaries.txt || exit 1
