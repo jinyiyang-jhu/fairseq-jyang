@@ -30,7 +30,7 @@ if [ $stage -le 0 ]; then
     [ -d $bpedir ] || mkdir $bpedir || exit 1
     for d in train train_dev fisher_dev fisher_dev2 fisher_test callhome_devtest callhome_evltest; do
         if [ -d $idata_dir/$d.$lan ]; then
-            echo "$(date -u) Processing BPE tokenization for dataset $d"
+            echo "$(date) Processing BPE tokenization for dataset $d"
             for lan in $source_lang $target_lang; do
                 input_file=$idata_dir/$d.$lan/text.${case}
                 cut -f 2- -d " " $input_file |\
@@ -44,7 +44,7 @@ if [ $stage -le 0 ]; then
 fi
 
 if [ $stage -le 1 ]; then
-    echo "$(date -u) Fairseq preprocess for dataset"
+    echo "$(date) Fairseq preprocess for dataset"
     preprocess_dir=$exp_dir/bpe_bin
     [ -d $preprocess_dir ] || mkdir -p $preprocess_dir || exit 1
     fairseq-preprocess --source-lang $source_lang --target-lang $target_lang \

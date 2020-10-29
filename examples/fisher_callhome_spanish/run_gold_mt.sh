@@ -29,17 +29,17 @@ non_lan_syms=data/lang/en_es_non_lang_syms_lc.txt
 
 
 if [ $stage -le 0 ]; then
-    echo "$(date -u) => training BPE model"
-    bash local/train_bpe.sh $bpe_train_text $non_lan_syms $bpe_model_dir || exit 1;
+    echo "$(date) => training BPE model"
+    bash local/train_bpe_subword_nmt.sh $bpe_train_text $non_lan_syms $bpe_model_dir || exit 1;
 fi
 
 if [ $stage -le 1 ]; then
-    echo "$(date -u) => preprocessing datasets"
+    echo "$(date) => preprocessing datasets"
     bash local/preprocess_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
 fi
 
 if [ $stage -le 2 ]; then
-    echo "$(date -u) => training transfromer model"
+    echo "$(date) => training transfromer model"
     mkdir -p $exp_dir/log || exit 1
     cp $conf $exp_dir
     $cuda_cmd --gpu $ngpus $exp_dir/log/train.log \
@@ -84,7 +84,7 @@ if [ $stage -le 3 ]; then
         dset=${dsets[$idx]}
         dset_name=${original_dsets[idx]}
         decode_dir=$exp_dir/decode_${dset_name}
-        echo "$(date -u) => decoding $dset_name with $exp_dir/checkpoints/${decode_mdl}.pt"
+        echo "$(date) => decoding $dset_name with $exp_dir/checkpoints/${decode_mdl}.pt"
         mkdir -p $decode_dir || exit 1
         $cuda_cmd --gpu 1 --mem 4G $decode_dir/log/decode.log \
          fairseq-generate $bin_dir \
@@ -95,7 +95,7 @@ if [ $stage -le 3 ]; then
             --remove-bpe $bpe_type \
             --num-workers $train_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
-        echo "$(date -u) => scoring BLEU for $dset_name with MOSES tools"
+        echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
         # TODO
     done
 fi
