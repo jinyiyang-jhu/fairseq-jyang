@@ -21,6 +21,7 @@ from fairseq.tokenizer import tokenize_line
 
 def binarize_text(ds, words, dict):
     replaced = Counter()
+    ntok = 0
     def replaced_consumer(word, idx):
         if idx == dict.unk_index and word != dict.unk_word:
             replaced.update([word])
@@ -33,9 +34,10 @@ def binarize_text(ds, words, dict):
         reverse_order=False,
     )
     ds.add_item(ids)
+    ntok += len(ids)
     return {
         "nunk": sum(replaced.values()),
-        "replaced": replaced,
+        "ntok": ntok
     }
 
 def tokenization_lat(word_seq, bpe_codes, bpe_vocab, bpe_gloss):
@@ -75,6 +77,8 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, tx
         dtype=np.int16)
     ds_mask = indexed_dataset.MMapIndexedDatasetBuilder(os.path.join(pos_dir, dset_name + '.mask.bin'),
         dtype=np.float64) 
+    ntok = 0
+    nunk = 0
     with open(lattice_file) as lat_file, open(lat_utt_id, 'w') as f_uttid:
         lat_reader = LatticeReader()
         for i, line in enumerate(lat_file.readlines()):
@@ -118,10 +122,13 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, tx
             print(uttid + ' ' + str(i), file=f_uttid)
             ds_mask.add_item(torch.DoubleTensor(log_conditional))
             ds_pos.add_item(torch.IntTensor(pos))
-            binarize_text(ds_text, ' '.join(tokens), vocab)
+            res = binarize_text(ds_text, ' '.join(tokens), vocab)
+            ntok += res['ntok']
+            nunk += res['nunk']
     ds_pos.finalize(os.path.join(pos_dir, dset_name + '.pos.idx'))
     ds_mask.finalize(os.path.join(mask_dir, dset_name + '.mask.idx'))
     ds_text.finalize(os.path.join(txt_dir, dset_name + '.idx'))
+    print('Number of unknown tokens is {} / {}'.format(nunk, ntok))
 
 def main():
     parser = argparse.ArgumentParser()
