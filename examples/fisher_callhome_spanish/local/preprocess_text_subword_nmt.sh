@@ -13,8 +13,8 @@ preprocess_num_workers=40
 . parse_options.sh || exit 1;
 
 if [ $# -ne 4 ]; then
-    echo "Usage: $0 <bpe-code-dir> <input-data-dir> <output-data-dir> <exp-dir>"
-    echo "E.g.: $0 exp/bpe_es_en_lc_subword_nmt data/espnet_prepared data/gold_mt exp/gold_mt"
+    echo "Usage: $0 <bpe-code-dir> <input-data-dir> <output-bpe-dir> <exp-dir>"
+    echo "E.g.: $0 exp/bpe_es_en_lc_subword_nmt data/espnet_prepared data/gold_mt/bpe_subword_nmt exp/gold_mt_subword_nmt"
     exit 1
 fi
 
