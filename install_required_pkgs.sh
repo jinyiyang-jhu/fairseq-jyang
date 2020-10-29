@@ -20,6 +20,7 @@ pip install hydra-core
 pip install sacremoses
 pip install numpy
 pip install scipy
+pip install kaldi_io
 editdistance
 
 # Optional
