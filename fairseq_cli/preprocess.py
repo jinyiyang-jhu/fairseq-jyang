@@ -67,6 +67,7 @@ def main(args):
         )
 
     target = not args.only_source
+    source = not args.only_target
 
     if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
         raise FileExistsError(dict_path(args.source_lang))
@@ -257,7 +258,8 @@ def main(args):
         if args.testpref and os.path.exists(args.testpref + "." + args.align_suffix):
             make_binary_alignment_dataset(args.testpref + "." + args.align_suffix, "test.align", num_workers=args.workers)
 
-    make_all(args.source_lang, src_dict, append_eos=args.append_eos_src)
+    if source:
+        make_all(args.source_lang, src_dict, append_eos=args.append_eos_src)
     if target:
         make_all(args.target_lang, tgt_dict, append_eos=args.append_eos_tgt)
     if args.align_suffix:

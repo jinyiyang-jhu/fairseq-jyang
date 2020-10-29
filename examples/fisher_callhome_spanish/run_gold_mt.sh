@@ -35,7 +35,7 @@ fi
 
 if [ $stage -le 1 ]; then
     echo "$(date) => preprocessing datasets"
-    bash local/preprocess_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
+    bash local/preprocess_text_subword_nmt.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
 fi
 
 if [ $stage -le 2 ]; then

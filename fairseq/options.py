@@ -273,6 +273,8 @@ def add_preprocess_args(parser):
                         help='output dataset implementation')
     group.add_argument("--joined-dictionary", action="store_true",
                        help="Generate joined dictionary")
+    group.add_argument("--only-target", action="store_true",
+                       help="Only process the target language")
     group.add_argument("--only-source", action="store_true",
                        help="Only process the source language")
     group.add_argument("--padding-factor", metavar="N", default=8, type=int,
