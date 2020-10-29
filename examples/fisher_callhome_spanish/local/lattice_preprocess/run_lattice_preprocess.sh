@@ -24,35 +24,36 @@ lat_plf_dir=$2
 word_map=$3
 bpe_code_dir=$4
 
-lat_processed=$new_lat_dir/plf_processed/
+lat_processed=$lat_plf_dir/plf_processed
 
 if [ $stage -le 0 ]; then
-    echo "$(date -u): converting lattices to FSTs"
+    echo "$(date): converting lattices to FSTs"
     bash local/lattice_preprocess/lattice2FST.sh --cmd "$train_cmd" \
     $lat_dir $lat_plf_dir/plf_edge $word_map || exit 1;
 fi
 
 if [ $stage -le 1 ]; then
     # Edge lattice to node lattice
-    echo "$(date -u): converting edge PLF to node PLFs"
+    echo "$(date): converting edge PLF to node PLFs"
     nj=$(ls $lat_plf_dir/plf_edge/plf.*.txt | wc -l)
     mkdir -p $lat_plf_dir/plf_node || exit 1;
-    $cmd JOB=1:$nj $lat_plf_dir/plf_node/log/edge2node.JOB.log \
+    $train_cmd JOB=1:$nj $lat_plf_dir/plf_node/log/edge2node.JOB.log \
         python local/lattice_preprocess/preproc-lattice.py \
-        $lat_plf_dir/plf_edge/plf.JOB.txt $lat_plf_dir/plf_node/plf.node.JOB.txt
+        $lat_plf_dir/plf_edge/plf.JOB.txt $lat_plf_dir/plf_node/plf.node.JOB.txt || exit 1;
 fi
 
 if [ $stage -le 2 ]; then
 # Compute pos and mask
-    echo "$(date -u): getting BPE tokens, pos indice and probability matrices from PLFs"
-    mkdir -p $lat_processed || exit 1
-    $cmd JOB=1:$nj $lat_processed/log/plfinfo.JOB.log \
-    python $SCRIPT_DIR/compute_attn_pos_enc.py --lat_ifile $lat_plf_dir/plf.node.JOB.txt \
-        --lat_bpe_file $lat_processed/plf.BPE.JOB.txt \
-        --lat_pos_file $lat_processed/plf.pos.JOB.npz \
-        --lat_prob_mask $lat_processed/plf.mask.JOB.npz \
-        --prob_mask_direction $mask_direction \
-        --bpe_code $bpe_code_dir/code.txt \
-        --bpe_vocab $bpe_code_dir/vocab.all.txt \
-        --bpe_gloss $bpe_code_dir/glossaries.txt || exit 1
+    echo "$(date): getting BPE tokens, pos indice and probability matrices from PLFs"
+    mkdir -p $lat_processed || exit 1;
+    nj=$(ls $lat_plf_dir/plf_node/plf.node.*.txt | wc -l)
+    $train_cmd JOB=1:$nj $lat_processed/log/plfinfo.JOB.log \
+        python local/lattice_preprocess/compute_attn_pos_enc.py \
+            --lat_ifile $lat_plf_dir/plf_node/plf.node.JOB.txt \
+            --output_dir $lat_processed/JOB \
+            --prob_mask_direction $mask_direction \
+            --bpe_code $bpe_code_dir/code.txt \
+            --bpe_vocab $bpe_code_dir/vocab.all.txt \
+            --bpe_gloss $bpe_code_dir/glossaries.txt || exit 1
 fi
+

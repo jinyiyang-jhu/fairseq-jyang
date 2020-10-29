@@ -7,13 +7,12 @@ This script calculates the attention masks and positional encodings from lattice
 for the transformer encoder.
 """
 from __future__ import print_function
+import os
 import argparse
 import codecs
 import numpy as np
-from numpy import savez_compressed, asarray
 from apply_bpe import read_vocabulary, BPE
 from lattice_utils import LatticeReader, LatticeNode, Lattice
-
 
 def tokenization_lat(word_seq, bpe_codes, bpe_vocab, bpe_gloss):
     """
@@ -39,15 +38,13 @@ def tokenization_lat(word_seq, bpe_codes, bpe_vocab, bpe_gloss):
         split_map.extend([(i, n) for n in range(len(tokens))])
     return split_tokens, split_map
 
-def load_dataset(lattice_file, lattice_bpe_file, lat_pos_file, lat_prob_mask_file,
+def load_dataset(lattice_file, lattice_bpe_file, lat_utt_id, npz_dir,
                 bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True, 
                 mask_direction=None, linearize=False):
     """
     Compute the attention masks and positional encoding from lattice.
     """
-    with open(lattice_file) as lat_file, open(lattice_bpe_file, 'w') as lat_bpe:
-        output_pos = {}
-        output_mask = {}
+    with open(lattice_file) as lat_file, open(lattice_bpe_file, 'w') as f_bpe, open(lat_utt_id, 'w') as f_uttid:
         lat_reader = LatticeReader()
         for i, line in enumerate(lat_file.readlines()):
             line = line.strip()
@@ -86,20 +83,16 @@ def load_dataset(lattice_file, lattice_bpe_file, lat_pos_file, lat_prob_mask_fil
             else:
                 pos = lattice_split.longest_distances()
                 pos = [p+1 for p in pos]
-                log_conditional = lattice_split.compute_pairwise_log_conditionals(
-                    mask_direction, probabilistic_masks)[0]
-                print(uttid + '\t' + ' '.join(tokens), file=lat_bpe)
-                output_pos[uttid] = np.array(pos)
-                output_mask[uttid] = np.array(log_conditional)
-        savez_compressed(lat_pos_file, **output_pos)
-        savez_compressed(lat_prob_mask_file, **output_mask)
+            log_conditional = lattice_split.compute_pairwise_log_conditionals(mask_direction, probabilistic_masks)[0]
+            print(uttid + '\t' + ' '.join(tokens), file=f_bpe)
+            print(uttid, file=f_uttid)
+            np.savez(os.path.join(npz_dir, uttid), pos=np.array(pos), mask=np.array(log_conditional))
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lat_ifile', type=str, required=True, help='Input lattice PLF file name')
-    parser.add_argument('--lat_bpe_file', type=str, required=True, help='Output lattice bpe file name')
-    parser.add_argument('--lat_pos_file', type=str, required=True, help='Output lattice postion indexes')
-    parser.add_argument('--lat_prob_mask', type=str, required=True, help='Output lattice probabilistic mask')
+    parser.add_argument('--output_dir', type=str, required=True, 
+        help='Output directory for encoded PLF, positional indice and probability matrice')
     parser.add_argument('--prob_mask_direction', type=str, default=None, choices=('None', 'fwd', 'bwd'),
                         help='Output lattice mask direction')
     parser.add_argument('--bpe_code', type=str, required=True, help='Code file for BPE')
@@ -112,13 +105,21 @@ def main():
     bpe_vocab = codecs.open(args.bpe_vocab, encoding='utf-8')
     bpe_vocab = read_vocabulary(bpe_vocab, args.bpe_vocab_thres)
     bpe_gloss = args.bpe_gloss
+    output_dir= args.output_dir
+
+    lat_bpe_file = os.path.join(output_dir, "plf.bpe.txt")
+    lat_utt_id = os.path.join(output_dir, "uttids.txt")
+    npz_dir = os.path.join(output_dir, "matrices")
+
+    if not os.path.exists(npz_dir):
+        os.makedirs(npz_dir)
 
     if args.prob_mask_direction == "None":
         mask_direction = None
     else:
         mask_direction = args.prob_mask_direction
 
-    load_dataset(args.lat_ifile, args.lat_bpe_file, args.lat_pos_file, args.lat_prob_mask,
+    load_dataset(args.lat_ifile, lat_bpe_file, lat_utt_id, npz_dir,
         bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True,
         mask_direction=mask_direction, linearize=False)
 
