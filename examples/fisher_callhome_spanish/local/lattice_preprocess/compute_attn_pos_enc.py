@@ -139,9 +139,9 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, ou
             ntok += res['ntok']
             nunk += res['nunk']
             i += 1
-    ds_pos.finalize(os.path.join(pos_dir, dset_name + '.pos.idx'))
-    ds_mask.finalize(os.path.join(mask_dir, dset_name + '.mask.idx'))
-    ds_text.finalize(os.path.join(txt_dir, dset_name + '.idx'))
+    ds_pos.finalize(os.path.join(output_dir, dset_name + '.pos.idx'))
+    ds_mask.finalize(os.path.join(output_dir, dset_name + '.mask.idx'))
+    ds_text.finalize(os.path.join(output_dir, dset_name + '.idx'))
     print('Number of unknown tokens is {} / {}'.format(nunk, ntok))
 
 def main():
