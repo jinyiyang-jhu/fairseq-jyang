@@ -51,7 +51,7 @@ if [ $stage -le 2 ]; then
     # Create multiple storage links to store the processed files over different disks to avoid heavy I/O
     if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $lat_processed ]; then
         create_split_dir.pl \
-            /export/c2{3,4,5,6,7}/${USER}/fairseq-data/plf_processed/fisher_callhome-$(date '+%m_%d_%H_%M')/$dset_name/storage \
+            /export/b0{4,5,6,7,8,9}/${USER}/fairseq-data/plf_processed/fisher_callhome-$(date '+%m_%d_%H_%M')/$dset_name/storage \
             $lat_processed/storage || { echo "create multiple storages failed !" 1>&2 ; exit 1; }
     
         for n in $(seq $nj); do
