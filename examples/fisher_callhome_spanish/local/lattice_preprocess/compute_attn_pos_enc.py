@@ -7,17 +7,27 @@ This script calculates the attention masks and positional encodings from lattice
 for the transformer encoder.
 """
 from __future__ import print_function
+import sys
 import os
 import argparse
 import codecs
 from collections import Counter
 import numpy as np
+import logging
 import torch
 from apply_bpe import read_vocabulary, BPE
 from lattice_utils import LatticeReader, LatticeNode, Lattice
 from fairseq import tasks
 from fairseq.data import indexed_dataset
 from fairseq.tokenizer import tokenize_line
+
+logging.basicConfig(
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    level=logging.INFO,
+    stream=sys.stdout,
+)
+logger = logging.getLogger('binarize-lattice')
 
 def binarize_text(ds, words, dict):
     replaced = Counter()
@@ -64,27 +74,30 @@ def tokenization_lat(word_seq, bpe_codes, bpe_vocab, bpe_gloss):
         split_map.extend([(i, n) for n in range(len(tokens))])
     return split_tokens, split_map
 
-def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, txt_dir, pos_dir, mask_dir,
+def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, output_dir,
                 bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True, 
                 mask_direction=None, linearize=False):
     """
     Compute the attention masks and positional encoding from lattice.
     Binarize the dataset to Fairseq idx and bin files.
     """
-    ds_text = indexed_dataset.make_builder(os.path.join(txt_dir, dset_name + '.bin'),
+    ds_text = indexed_dataset.make_builder(os.path.join(output_dir, dset_name + '.bin'),
         impl='mmap', vocab_size=len(vocab))
-    ds_pos = indexed_dataset.MMapIndexedDatasetBuilder(os.path.join(pos_dir, dset_name + '.pos.bin'),
+    ds_pos = indexed_dataset.MMapIndexedDatasetBuilder(os.path.join(output_dir, dset_name + '.pos.bin'),
         dtype=np.int16)
-    ds_mask = indexed_dataset.MMapIndexedDatasetBuilder(os.path.join(pos_dir, dset_name + '.mask.bin'),
+    ds_mask = indexed_dataset.MMapIndexedDatasetBuilder(os.path.join(output_dir, dset_name + '.mask.bin'),
         dtype=np.float64) 
     ntok = 0
     nunk = 0
+    i = 0
+    lat_reader = LatticeReader()
     with open(lattice_file) as lat_file, open(lat_utt_id, 'w') as f_uttid:
-        lat_reader = LatticeReader()
-        for i, line in enumerate(lat_file.readlines()):
-            line = line.strip()
+        line = lat_file.readline()
+        while True:
+            line = lat_file.readline().strip()
             tokens = line.split('\t')
             uttid = tokens.pop(0)
+            logging.info("Processline file: {}".format(uttid))
             lattice = lat_reader.read_sent(tokens[0], i)
             tokens, mapping = tokenization_lat(
                 lattice.str_tokens(), bpe_codes, bpe_vocab, bpe_gloss)
@@ -125,6 +138,7 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, tx
             res = binarize_text(ds_text, ' '.join(tokens), vocab)
             ntok += res['ntok']
             nunk += res['nunk']
+            i += 1
     ds_pos.finalize(os.path.join(pos_dir, dset_name + '.pos.idx'))
     ds_mask.finalize(os.path.join(mask_dir, dset_name + '.mask.idx'))
     ds_text.finalize(os.path.join(txt_dir, dset_name + '.idx'))
@@ -149,25 +163,22 @@ def main():
     bpe_vocab = codecs.open(args.bpe_vocab, encoding='utf-8')
     bpe_vocab = read_vocabulary(bpe_vocab, args.bpe_vocab_thres)
     bpe_gloss = args.bpe_gloss
-    output_dir= args.output_dir
 
-    txt_dir = os.path.join(output_dir, "text")
-    pos_dir = os.path.join(output_dir, "positions")
-    mask_dir = os.path.join(output_dir, "masks")
-    lat_utt_id = os.path.join(output_dir, "uttids.txt")
+    lat_utt_id = os.path.join(args.output_dir, args.dset_name + ".lat.uttid")
     task = tasks.get_task('translation_lattice')
     vocab = task.load_dictionary(args.dict)
-
-    for d in [txt_dir, pos_dir, mask_dir]:
-        if not os.path.exists(d):
-            os.makedirs(d)
+    
+    logger.addHandler(logging.FileHandler(
+        filename=os.path.join(args.output_dir, 'binarize_lattice.log'),
+    ))
+    logger.info(args)
 
     if args.prob_mask_direction == "None":
         mask_direction = None
     else:
         mask_direction = args.prob_mask_direction
 
-    compuate_and_binarize_dataset(args.lat_ifile, args.dset_name, lat_utt_id, vocab, txt_dir, pos_dir, mask_dir,
+    compuate_and_binarize_dataset(args.lat_ifile, args.dset_name, lat_utt_id, vocab, args.output_dir,
         bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True,
         mask_direction=mask_direction, linearize=False)
 

@@ -13,16 +13,18 @@ mask_direction="None" # "fwd", "bwd" or "None"
 . parse_options.sh || exit 1;
 
 # Use Kaldi tools to process lattice
-if [ $# -ne 4 ]; then
-    echo "Usage : $0 <old-lat-dir> <new-plf-dir> <word2int> <bpe-code-dir>"
-    echo "E.g.: $0 data/lattice data/plf data/lang/words.txt exp/bpe_es_en_lc_subword_nmt"
+if [ $# -ne 6 ]; then
+    echo "Usage : $0 <old-lat-dir> <new-plf-dir> <dset-name> <word2int> <bpe-code-dir> <fairseq-bpe-dict>"
+    echo "E.g.: $0 data/lattice data/plf \"train\" data/lang/words.txt exp/bpe_es_en_lc_subword_nmt exp/lat_mt_subword_nmt/bpe_bin/dict.es.txt"
     exit 1
 fi
 
 lat_dir=$1
 lat_plf_dir=$2
-word_map=$3
-bpe_code_dir=$4
+dset_name=$3
+word_map=$4
+bpe_code_dir=$5
+fairseq_bpe_dict=$6
 
 lat_processed=$lat_plf_dir/plf_processed
 
@@ -45,13 +47,27 @@ fi
 if [ $stage -le 2 ]; then
 # Compute pos and mask
     echo "$(date): getting BPE tokens, pos indice and probability matrices from PLFs"
-    mkdir -p $lat_processed || exit 1;
     nj=$(ls $lat_plf_dir/plf_node/plf.node.*.txt | wc -l)
-    $train_cmd JOB=1:$nj $lat_processed/log/plfinfo.JOB.log \
+    # Create multiple storage links to store the processed files over different disks to avoid heavy I/O
+    if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $lat_processed ]; then
+        create_split_dir.pl \
+            /export/c2{3,4,5,6,7}/${USER}/fairseq-data/plf_processed/fisher_callhome-$(date '+%m_%d_%H_%M')/$dset_name/storage \
+            $lat_processed/storage || { echo "create multiple storages failed !" 1>&2 ; exit 1; }
+    
+        for n in $(seq $nj); do
+            for f in "lat.uttid" "bin" "idx" "pos.idx" "pos.bin" "mask.idx" "mask.bin"; do
+                create_data_link.pl $lat_processed/${dset_name}.$n.$f || { echo "create multiple storage links for $f failed !" 1>&2 ; exit 1; }
+            done
+        done
+    fi
+
+    $train_cmd JOB=1:$nj $lat_processed/log/binarize-lat.JOB.log \
         python local/lattice_preprocess/compute_attn_pos_enc.py \
             --lat_ifile $lat_plf_dir/plf_node/plf.node.JOB.txt \
-            --output_dir $lat_processed/JOB \
+            --dset_name $dset_name.JOB \
+            --output_dir $lat_processed \
             --prob_mask_direction $mask_direction \
+            --dict $fairseq_bpe_dict \
             --bpe_code $bpe_code_dir/code.txt \
             --bpe_vocab $bpe_code_dir/vocab.all.txt \
             --bpe_gloss $bpe_code_dir/glossaries.txt || exit 1
