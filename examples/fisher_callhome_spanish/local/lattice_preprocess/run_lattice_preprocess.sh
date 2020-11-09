@@ -128,5 +128,6 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
             awk '{print $1}' $dset_output_dir/plf_binarized/$dset.$n.lat.uttid  >> $uttid_file.tmp
         done
         awk '{print $1" "NR-1}' $uttid_file.tmp > $uttid_file
+        rm $uttid_file.tmp
     fi
 done
