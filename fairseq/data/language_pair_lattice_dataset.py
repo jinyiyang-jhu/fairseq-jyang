@@ -76,12 +76,13 @@ def collate(
     )
     src_pos_ids = merge_pos('src_pos', left_pad=left_pad_source)
     src_masks = merge_mask('src_mask', mask_pad_value, left_pad=left_pad_source)
+ 
     # sort by descending source length
     src_lengths = torch.LongTensor([
         s['source'].ne(pad_idx).long().sum() for s in samples
     ])
     src_pos_lengths = torch.LongTensor([s['src_pos'].numel() for s in samples])
-    src_mask_lenths = torch.LongTensor([s['src_mask'].shape(0) for s in samples])
+    src_mask_lenths = torch.LongTensor([s['src_mask'].shape[0] for s in samples])
 
     assert torch.all(torch.eq(src_lengths, src_pos_lengths))
     assert torch.all(torch.eq(src_lengths, src_mask_lenths))

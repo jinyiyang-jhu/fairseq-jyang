@@ -90,7 +90,6 @@ def collate_mask(values, mask_pad_value, left_pad=False, move_eos_to_beginning=F
     """
     size = max(v.shape[0] for v in values)
     res = values[0].new(len(values), size, size).fill_(mask_pad_value)
-
     def copy_tensor(src, dst):
         assert dst.numel() == src.numel()
         if move_eos_to_beginning:
@@ -98,14 +97,14 @@ def collate_mask(values, mask_pad_value, left_pad=False, move_eos_to_beginning=F
             dst[:, 1:] = src[:, :-1]
         else:
             dst.copy_(src)
-        for i, v in enumerate(values):
-            if left_pad:
-                # This will pad in the top rows and left columns
-                copy_tensor(v, res[i][size - len(v):, size - len(v):])
-            else:
-                # This will pad in the bottom rows and right columns
-                copy_tensor(v, res[i][:len(v), :len(v)])
-        return res
+    for i, v in enumerate(values):
+        if left_pad:
+            # This will pad in the top rows and left columns
+            copy_tensor(v, res[i][size - len(v):, size - len(v):])
+        else:
+            # This will pad in the bottom rows and right columns
+            copy_tensor(v, res[i][:len(v), :len(v)])
+    return res
 
 def load_indexed_dataset(path, dictionary=None, dataset_impl=None, combine=False, default='cached'):
     """A helper function for loading indexed datasets.
