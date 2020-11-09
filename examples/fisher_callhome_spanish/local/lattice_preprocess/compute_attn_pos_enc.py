@@ -92,12 +92,10 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, ou
     i = 0
     lat_reader = LatticeReader()
     with open(lattice_file) as lat_file, open(lat_utt_id, 'w') as f_uttid:
-        line = lat_file.readline()
-        while True:
-            line = lat_file.readline().strip()
+        for line in lat_file:
+            line = line.strip()
             tokens = line.split('\t')
             uttid = tokens.pop(0)
-            logging.info("Processline file: {}".format(uttid))
             lattice = lat_reader.read_sent(tokens[0], i)
             tokens, mapping = tokenization_lat(
                 lattice.str_tokens(), bpe_codes, bpe_vocab, bpe_gloss)
@@ -133,9 +131,11 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, ou
                 pos = [p+1 for p in pos]
             log_conditional = lattice_split.compute_pairwise_log_conditionals(mask_direction, probabilistic_masks)[0]
             print(uttid + ' ' + str(i), file=f_uttid)
+            f_uttid.flush()
             ds_mask.add_item(torch.DoubleTensor(log_conditional))
             ds_pos.add_item(torch.IntTensor(pos))
             res = binarize_text(ds_text, ' '.join(tokens), vocab)
+            logging.info("Processed utterance: {} , the number of BPE tokens is {} ".format(uttid, res['ntok']))
             ntok += res['ntok']
             nunk += res['nunk']
             i += 1
