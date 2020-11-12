@@ -11,8 +11,8 @@ stage=1
 preprocess_stage=1
 ngpus=4
 decode_mdl="checkpoint_best"
-bpe_type="subword_nmt"
-generate_bsz=256
+bpe_type="@@ " # default is subword-nmt, could be set to "sentencepiece"
+generate_bsz=8
 
 # Dataset dir/names
 #original_datadir=data/espnet_prepared
@@ -82,10 +82,10 @@ if [ $stage -le 2 ]; then
     for idx in $(seq 0 $((${#dsets[@]}-1))); do
         dset=${dsets[$idx]}
         dset_name=${original_dsets[idx]}
-        decode_dir=$exp_dir/decode_${dset_name}
+        decode_dir=$exp_dir/decode_${dset_name}_${decode_mdl}
         echo "$(date) => decoding $dset_name with $exp_dir/checkpoints/${decode_mdl}.pt"
         mkdir -p $decode_dir || exit 1
-        $cuda_cmd --gpu 1 --mem 4G $decode_dir/log/decode.log \
+        $cuda_cmd --gpu 1 --mem 16G $decode_dir/log/decode.log \
          fairseq-generate $bin_dir \
             --task $task \
             --skip-invalid-size-inputs-valid-test \
@@ -93,7 +93,7 @@ if [ $stage -le 2 ]; then
             --path $exp_dir/checkpoints/${decode_mdl}.pt \
             --batch-size $generate_bsz \
             --remove-bpe $bpe_type \
-            --num-workers $train_num_workers \
+            --num-workers $decode_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
         echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
         # TODO

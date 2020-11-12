@@ -7,19 +7,19 @@ conf="conf/mt_gold_transformer_bpe.sh"
 
 . $conf
 
-stage=-1
-ngpus=3
+stage=2
+ngpus=4
 decode_mdl="checkpoint_best"
-bpe_type="sentencepiece"
-generate_bsz=256
+bpe_type="@@ "
+generate_bsz=8
 
 # Dataset dir/names
 original_datadir=data/espnet_prepared
 orginal_bpedir=data/gold_mt/bpe
-original_dsets=("train_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
+original_dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
 dsets=("valid" "test" "test1" "test2" "test3" "test4")
-bin_dir=exp/gold_mt/bpe_bin
-exp_dir=exp/gold_mt
+bin_dir=exp/gold_mt_subword_nmt/bpe_bin
+exp_dir=exp/gold_mt_subword_nmt
 # BPE related path
 nbpe=1000
 case="lc.rm"
@@ -35,7 +35,7 @@ fi
 
 if [ $stage -le 1 ]; then
     echo "$(date) => preprocessing datasets"
-    bash local/preprocess_text_subword_nmt.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
+    bash local/preprocess_subword_nmt_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
 fi
 
 if [ $stage -le 2 ]; then
@@ -83,7 +83,7 @@ if [ $stage -le 3 ]; then
     for idx in $(seq 0 $((${#dsets[@]}-1))); do
         dset=${dsets[$idx]}
         dset_name=${original_dsets[idx]}
-        decode_dir=$exp_dir/decode_${dset_name}
+        decode_dir=$exp_dir/decode_${dset_name}_${decode_mdl}
         echo "$(date) => decoding $dset_name with $exp_dir/checkpoints/${decode_mdl}.pt"
         mkdir -p $decode_dir || exit 1
         $cuda_cmd --gpu 1 --mem 4G $decode_dir/log/decode.log \
@@ -93,7 +93,7 @@ if [ $stage -le 3 ]; then
             --path $exp_dir/checkpoints/${decode_mdl}.pt \
             --batch-size $generate_bsz \
             --remove-bpe $bpe_type \
-            --num-workers $train_num_workers \
+            --num-workers $decode_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
         echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
         # TODO
