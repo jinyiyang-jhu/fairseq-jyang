@@ -1,29 +1,25 @@
 #!/bin/bash
 # This script trains a MT model with transformer structure on lattice translation pairs
 
-. cmd.sh
-. path.sh
-conf="conf/lat_transformer_bpe.sh"
-
-. $conf
-
 stage=1
 preprocess_stage=1
 ngpus=4
-decode_mdl="checkpoint_best"
-bpe_type="@@ " # default is subword-nmt, could be set to "sentencepiece"
-generate_bsz=8
+
+conf="conf/lat_transformer_bpe_Nov16.sh"
+exp_dir=exp/lat_mt_subword_nmt_Nov16
+
+. cmd.sh
+. path.sh
+. parse_options.sh || exit 1;
+
+conf=$1
+exp_dir=$2
+. $conf
 
 # Dataset dir/names
-#original_datadir=data/espnet_prepared
-#orginal_bpedir=data/gold_mt/bpe
-original_dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
-dsets=("valid" "test" "test1" "test2" "test3" "test4")
+original_dsets=("fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
+dsets=("test" "test1" "test2" "test3" "test4")
 bin_dir=exp/lat_mt_subword_nmt/bpe_bin
-exp_dir=exp/lat_mt_subword_nmt
-# BPE related path
-nbpe=1000
-case="lc.rm"
 #bpe_train_text=exp/espnet_bpe_model/input.txt
 #bpe_code_dir=exp/bpe_es_en_lc_subword_nmt
 #non_lan_syms=data/lang/en_es_non_lang_syms_lc.txt
@@ -34,7 +30,7 @@ if [ $stage -le 0 ]; then
 fi
 
 if [ $stage -le 1 ]; then
-    echo "$(date) => training transfromer model"
+    echo "$(date) => training transfromer model with configuration: $conf"
     mkdir -p $exp_dir/log || exit 1
     cp $conf $exp_dir
     $cuda_cmd --gpu $ngpus $exp_dir/log/train.log \
@@ -86,16 +82,16 @@ if [ $stage -le 2 ]; then
         echo "$(date) => decoding $dset_name with $exp_dir/checkpoints/${decode_mdl}.pt"
         mkdir -p $decode_dir || exit 1
         $cuda_cmd --gpu 1 --mem 16G $decode_dir/log/decode.log \
-         fairseq-generate $bin_dir \
+         fairseq-generate-from-lattice $bin_dir \
             --task $task \
             --skip-invalid-size-inputs-valid-test \
             --gen-subset $dset \
             --path $exp_dir/checkpoints/${decode_mdl}.pt \
             --batch-size $generate_bsz \
-            --remove-bpe $bpe_type \
+            --remove-bpe "$bpe_type" \
             --num-workers $decode_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
-        echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
+        # echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
         # TODO
     done
 fi
