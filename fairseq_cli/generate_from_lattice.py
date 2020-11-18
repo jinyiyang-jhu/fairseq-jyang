@@ -57,7 +57,7 @@ def _main(args, output_file):
 
     utils.import_user_module(args)
 
-    if args.max_tokens is None and args.max_sentences is None:
+    if args.max_tokens is None and args.batch_size is None:
         args.max_tokens = 12000
     logger.info(args)
 
@@ -104,7 +104,7 @@ def _main(args, output_file):
     itr = task.get_batch_iterator(
         dataset=task.dataset(args.gen_subset),
         max_tokens=args.max_tokens,
-        max_sentences=args.max_sentences,
+        max_sentences=args.batch_size,
         max_positions=utils.resolve_max_positions(
             task.max_positions(),
             *[model.max_positions() for model in models]
@@ -189,7 +189,7 @@ def _main(args, output_file):
                         escape_unk=True,
                         extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
                     )
-
+                    
             src_str = decode_fn(src_str)
             if has_target:
                 target_str = decode_fn(target_str)
