@@ -49,9 +49,9 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
         echo "$(date): converting lattices to FSTs for $dset"
 
         # Analysis on lattices for the lattice depth (avergae number of arcs per frame)
-        #bash local/lattice_preprocess/lattice_prune.sh --acwt $acwt --beam $beam --depth_thres $lat_depth_thres $lat_dir $lat_pruned_dir
-        #bash local/lattice_preprocess/lattice2FST.sh --cmd "$train_cmd" --acwt $acwt --lmwt $lmwt \
-        #    $lat_pruned_dir $lat_pruned_dir/plf_edge_unfiltered $word_map || exit 1;
+        bash local/lattice_preprocess/lattice_prune.sh --acwt $acwt --beam $beam --depth_thres $lat_depth_thres $lat_dir $lat_pruned_dir
+        bash local/lattice_preprocess/lattice2FST.sh --cmd "$train_cmd" --acwt $acwt --lmwt $lmwt \
+            $lat_pruned_dir $lat_pruned_dir/plf_edge_unfiltered $word_map || exit 1;
             
         nj=$(ls $lat_pruned_dir/plf_edge_unfiltered/plf.*.txt | wc -l)
         [ -d $dset_output_dir/plf_edge ] || mkdir -p $dset_output_dir/plf_edge || exit 1;
