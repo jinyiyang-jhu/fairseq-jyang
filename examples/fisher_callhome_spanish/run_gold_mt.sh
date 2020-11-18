@@ -14,6 +14,8 @@ bpe_type="@@ "
 generate_bsz=8
 
 # Dataset dir/names
+src_lan="es"
+tgt_lan="en"
 original_datadir=data/espnet_prepared
 orginal_bpedir=data/gold_mt/bpe
 original_dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
@@ -44,6 +46,8 @@ if [ $stage -le 2 ]; then
     cp $conf $exp_dir
     $cuda_cmd --gpu $ngpus $exp_dir/log/train.log \
         fairseq-train $bin_dir \
+        -s $src_lan \
+        -t $tgt_lan \
         --num-workers $train_num_workers \
         --task $task \
         --arch $arch \
@@ -88,14 +92,16 @@ if [ $stage -le 3 ]; then
         mkdir -p $decode_dir || exit 1
         $cuda_cmd --gpu 1 --mem 4G $decode_dir/log/decode.log \
          fairseq-generate $bin_dir \
+            -s $src_lan \
+            -t $tgt_lan \
             --task $task \
             --gen-subset $dset \
             --path $exp_dir/checkpoints/${decode_mdl}.pt \
             --batch-size $generate_bsz \
-            --remove-bpe $bpe_type \
+            --remove-bpe "$bpe_type" \
             --num-workers $decode_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
-        echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
+        # echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
         # TODO
     done
 fi
