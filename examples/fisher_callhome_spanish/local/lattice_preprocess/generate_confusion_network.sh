@@ -20,6 +20,7 @@ sausage_dir=$2
 
 nj=$(ls $lat_dir/lat.*.gz | wc -l)
 
+mkdir -p $sausage_dir || { echo "mkdir failed for $sausage_dir" && exit 1; }
 $cmd JOB=1:$nj $sausage_dir/log/decode_mbr.JOB.log \
     lattice-mbr-decode ark:"gunzip -c $lat_dir/lat.JOB.gz|" \
         ark:/dev/null ark:/dev/null ark,t:$sausage_dir/JOB.sau || { echo "MBR decoding failed" && exit 1; }
