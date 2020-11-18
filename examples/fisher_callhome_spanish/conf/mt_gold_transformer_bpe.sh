@@ -5,7 +5,7 @@ task="translation"
 share_embeddings="" # if want to use this option, add "--share-all-embeddings" in the train script.
 train_num_workers=40
 decode_num_workers=10
-save_interval=1
+save_interval=5
 #keep_last_epochs=30
 
 # encoder
