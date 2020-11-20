@@ -33,16 +33,16 @@ def convert_to_plf_edge_remove_eps(ifile, ofile, int2word, eps_id="0", add_bos=T
                     if idx % 2 ==  0:
                         if idx == 0:
                             edge = "(" + edge
-                        edge += "('{}', {}, 1),".format(int2word[item], np.log(edges_tokens[idx+1]))
+                        edge += "('{}', {}, 1),".format(int2word[item], np.log(float(edges_tokens[idx+1])))
                     elif idx == len(edges_tokens) - 1:
                         edge += "),"
                 plf_edge += edge
             if add_bos:
-                plf_edge = "((('<s>', 0, 1),)," + plf_edge
+                plf_edge = "((('<s>', 0.0, 1),)," + plf_edge
             else:
                 plf_edge = "(" + plf_edge
             if add_eos:
-                plf_edge += "(('</s>', 0, 1),),"
+                plf_edge += "(('</s>', 0.0, 1),),"
             plf_edge += ")"
             if empty_flag:
                 print("Empty line for {}".format(uttid))
