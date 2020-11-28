@@ -9,8 +9,12 @@ plf_filtered_file=$3
 for f in $plf_file $utt_list; do
     [ ! -f $f ] && echo "No such file: $f !" && exit 1;
 done
-cat $plf_file | awk 'NF!=1' | awk 'NR==FNR {a[$1];next} $1 in a{print $0}' $utt_list - \
+
+#cat $plf_file | awk 'NF!=1' | awk 'NR==FNR {a[$1];next} $1 in a{print $0}' $utt_list - \
+#    > $plf_filtered_file
+cat $plf_file | awk 'NR==FNR {a[$1];next} $1 in a{if (NF !=1 ) {print $0} else {print $1" [noise]"}}' $utt_list - \
     > $plf_filtered_file
+
 
 num_prev=$(wc -l $plf_file | cut -d " " -f1)
 num_current=$(wc -l $plf_filtered_file | cut -d " " -f1)
