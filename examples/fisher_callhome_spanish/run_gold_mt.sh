@@ -1,17 +1,24 @@
 #!/bin/bash
 # This script trains a MT model with transformer structure on gold translation pairs
 
-. cmd.sh
-. path.sh
-conf="conf/mt_gold_transformer_bpe.sh"
-
-. $conf
-
 stage=2
 ngpus=4
 decode_mdl="checkpoint_best"
 bpe_type="@@ "
 generate_bsz=8
+
+conf="conf/mt_gold_transformer_bpe.sh"
+exp_dir=exp/kaldi_1best_mt_subword_nmt
+bin_dir=exp/kaldi_1best_mt_subword_nmt/bpe_bin
+
+. cmd.sh
+. path.sh
+. parse_options.sh || exit 1;
+
+conf=$1
+exp_dir=$2
+bin_dir=$exp_dir/bpe_bin
+. $conf
 
 # Dataset dir/names
 src_lan="es"
@@ -20,8 +27,6 @@ original_datadir=data/espnet_prepared
 orginal_bpedir=data/gold_mt/bpe
 original_dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
 dsets=("valid" "test" "test1" "test2" "test3" "test4")
-bin_dir=exp/gold_mt_subword_nmt/bpe_bin
-exp_dir=exp/gold_mt_subword_nmt
 # BPE related path
 nbpe=1000
 case="lc.rm"
@@ -30,15 +35,15 @@ bpe_code_dir=exp/bpe_es_en_lc_subword_nmt
 non_lan_syms=data/lang/en_es_non_lang_syms_lc.txt
 
 
-if [ $stage -le 0 ]; then
-    echo "$(date) => training BPE model"
-    bash local/train_bpe_subword_nmt.sh $bpe_train_text $non_lan_syms $bpe_model_dir || exit 1;
-fi
-
-if [ $stage -le 1 ]; then
-    echo "$(date) => preprocessing datasets"
-    bash local/preprocess_subword_nmt_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
-fi
+#if [ $stage -le 0 ]; then
+#    echo "$(date) => training BPE model"
+#    bash local/train_bpe_subword_nmt.sh $bpe_train_text $non_lan_syms $bpe_model_dir || exit 1;
+#fi
+#
+#if [ $stage -le 1 ]; then
+#    echo "$(date) => preprocessing datasets"
+#    bash local/preprocess_subword_nmt_text.sh $bpe_code_dir $original_datadir $orginal_bpedir $exp_dir
+#fi
 
 if [ $stage -le 2 ]; then
     echo "$(date) => training transfromer model"

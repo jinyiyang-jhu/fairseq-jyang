@@ -7,7 +7,6 @@ ngpus=4
 
 conf="conf/lat_transformer_bpe_Nov16.sh"
 exp_dir=exp/lat_mt_subword_nmt_Nov16
-bin_dir=exp/lat_mt_subword_nmt/bpe_bin
 
 . cmd.sh
 . path.sh
@@ -16,6 +15,9 @@ bin_dir=exp/lat_mt_subword_nmt/bpe_bin
 conf=$1
 exp_dir=$2
 . $conf
+
+bin_dir=$exp_dir/bpe_bin
+[ ! -d $bin_dir ] && echo "No such dir $bin_dir !" && exit 1;
 
 # Dataset dir/names
 original_dsets=("fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest")
