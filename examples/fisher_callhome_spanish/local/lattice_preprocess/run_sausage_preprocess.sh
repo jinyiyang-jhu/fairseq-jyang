@@ -37,6 +37,7 @@ word_map=$4
 bpe_code_dir=$5
 fairseq_bpe_dict=$6
 fairseq_bin_dir=$7
+mkdir -p $fairseq_bin_dir || exit 1;
 
 sausage_dir=$kaldi_lat_dir
 
