@@ -36,7 +36,7 @@ word_map=$4
 bpe_code_dir=$5
 fairseq_bpe_dict=$6
 fairseq_bin_dir=$7
-
+mkdir -p $fairseq_bin_dir || exit 1;
 
 for idx in $(seq 0 $((${#dsets[@]}-1))); do
     dset=${dsets[$idx]}
@@ -116,7 +116,6 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
         echo "$(date) Combininb binarized files for $dset"
         dset_name=${fairseq_dsets[idx]}
         nj=$(ls $dset_output_dir/plf_binarized/$dset.*.pos.idx | wc -l)
-
         python local/lattice_preprocess/merge_binaries.py \
             --input_prefix $dset_output_dir/plf_binarized/$dset \
             --num_splits $nj \

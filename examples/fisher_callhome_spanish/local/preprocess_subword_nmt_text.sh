@@ -8,7 +8,7 @@ source_lang="es"
 target_lang="en"
 case=".lc.rm"
 perform_bpe="true"
-filter="false"
+filter="true"
 source_type="kaldi_1best" # or "gold"
 preprocess_num_workers=40
 
@@ -28,12 +28,13 @@ fairseq_dsets=("valid" "test" "test1" "test2" "test3" "test4" "train")
 filtered_dir=data/common_espnet_kaldi
 output_bpe_dir=data/common_espnet_kaldi
 fairseq_bin_dir=exp/${source_type}_mt_subword_nmt/bpe_bin
+bpe_dir=$output_bpe_dir/bpe_subword_nmt_${source_type}
 
+mkdir -p $fairseq_bin_dir || exit 1;
 if [ $stage -le 1 ]; then
     for idx in $(seq 0 $((${#dsets[@]}-1))); do
         d=${dsets[$idx]}
         fd=${fairseq_dsets[idx]}
-        bpe_dir=$output_bpe_dir/bpe_subword_nmt_${source_type}
         [ -d $bpe_dir ] || mkdir -p $bpe_dir || exit 1;
         if [ $filter == "true" ]; then
             mkdir -p $filtered_dir/$d.$source_lang/$source_type || exit 1;
@@ -48,7 +49,9 @@ if [ $stage -le 1 ]; then
             echo "$(date) Processing BPE tokenization for dataset: $d.$source_lang"
             source_file=$filtered_dir/$d.$source_lang/$source_type/text
             target_file=$filtered_dir/$d.$target_lang/text
-            if diff <(cut -d " "  -f1 $source_file) <(cut -d " " -f1 $target_file) >& /dev/null ;
+            echo "$(wc -l $source_file)" 
+            echo "$(wc -l $target_file)"
+            if ! diff <(cut -d " "  -f1 $source_file) <(cut -d " " -f1 $target_file) >& /dev/null ;
             then
                 echo "Utterance numbers (or order) differ between $source_file and $target_file !" && exit 1;
             fi
@@ -70,9 +73,9 @@ if [ $stage -le 1 ]; then
                 echo "Number of src utterances and number of target utterances differ !" && exit 1;
             fi
         fi
+        cp $common_uttid_dir/$d.$source_lang/overlap.uttid $fairseq_bin_dir/$fd.uttid
     done
         echo "$(date) Fairseq preprocess for target dataset: $d"
-        bpe_dir=$output_bpe_dir/bpe_subword_nmt_${source_type}
         fairseq-preprocess --source-lang $source_lang --target-lang $target_lang \
             --append-eos-tgt \
             --joined-dictionary \
