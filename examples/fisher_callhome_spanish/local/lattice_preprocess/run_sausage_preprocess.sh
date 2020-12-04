@@ -1,13 +1,7 @@
 #!/bin/bash
 
 cmd=run.pl
-
-[ -f ./path.sh ] && . ./path.sh;
-. cmd.sh
-. parse_options.sh || exit 1;
-
 stage=-1
-cmd=run.pl
 acwt=0.1
 lmwt=1.0
 beam=4
@@ -15,6 +9,13 @@ lat_depth_thres=85
 src="en"
 tgt="es"
 mask_direction="None" # "fwd", "bwd" or "None"
+skip_token="\<eps\>" # or "None" if you don't want to skip any token for model training
+
+[ -f ./path.sh ] && . ./path.sh;
+. cmd.sh
+. parse_options.sh || exit 1;
+
+
 
 dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest" "train")
 fairseq_dsets=("valid" "test" "test1" "test2" "test3" "test4" "train")
@@ -47,14 +48,15 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
     lat_pruned_dir=$kaldi_lat_dir/${dset}_lats_pruned_acwt_${acwt}_lmwt_${lmwt}.$tgt
     sau_dir=$sausage_dir/${dset}_sausage_pruned_acwt_${acwt}_lmwt_${lmwt}.$tgt
     dset_output_dir=$output_dir/$dset.$tgt
-    plf_edge_dir=$dset_output_dir/plf_sau_edge
-    plf_node_dir=$dset_output_dir/plf_sau_node
-    lat_processed=$dset_output_dir/plf_sau_binarized
+    plf_edge_dir=$sausage_dir/$dset.$tgt/plf_sau_edge_skip
+    plf_node_dir=$dset_output_dir/plf_sau_node_skip
+    lat_processed=$dset_output_dir/plf_sau_binarized_skip
+    common_utt_list=$common_uttid_dir/${dset}.$tgt/overlap.uttid
 
-    if [ $stage -le 0 ]; then
-        echo "$(date): pruning lattices for $dset"
-        bash local/lattice_preprocess/lattice_prune.sh --acwt $acwt --beam $beam --depth_thres $lat_depth_thres $lat_dir $lat_pruned_dir
-    fi
+    #if [ $stage -le 0 ]; then
+    #    echo "$(date): pruning lattices for $dset"
+    #    bash local/lattice_preprocess/lattice_prune.sh --acwt $acwt --beam $beam --depth_thres $lat_depth_thres $lat_dir $lat_pruned_dir
+    #fi
 
     if [ $stage -le 1 ]; then
         echo "$(date): converting lattices to confusion networks for $dset"
@@ -70,18 +72,36 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
                 --add_bos --add_eos \
                 --sausage $sau_dir/JOB.sau \
                 --plf $plf_edge_dir/plf.JOB.txt \
-                --word_sym_tabel $word_map || exit 1;
+                --skip_token "${skip_token}" \
+                --word_sym_table $word_map || exit 1;
+
+        # Filter out the empty plf files, and in the ESPNET overlap utterance lists.
+        mkdir -p $dset_output_dir/plf_sau_edge_skip
+        run.pl JOB=1:$nj $dset_output_dir/plf_sau_edge_skip/log/filter_plf.JOB.log \
+            bash local/lattice_preprocess/filter_plf.sh $plf_edge_dir/plf.JOB.txt \
+                $common_utt_list \
+                $dset_output_dir/plf_sau_edge_skip/plf.JOB.txt
+        [ -f $dset_output_dir/plf_sau_edge_skip/plf.uttid ] && rm $dset_output_dir/plf_sau_edge_skip/plf.uttid
+        for n in $(seq 1 $nj); do
+            awk '{print $1}' $dset_output_dir/plf_sau_edge_skip/plf.$n.txt >> $dset_output_dir/plf_sau_edge_skip/plf.uttid
+        done
+    num_src=$(wc -l $common_utt_list | cut -d " " -f1)
+    num_current=$(wc -l $dset_output_dir/plf_sau_edge_skip/plf.uttid | cut -d " "  -f1)
+    if [ $num_src -ne $num_current ]; then
+        echo "Number of filtered utterances differs from given utt list: $num_src vs $num_current !"
     fi
+    fi
+
         # Need to add a filter scripts to filter 1) empty plf files 2) not in the overlap uttid list (joint of ESPNET & Kaldi)
     if [ $stage -le 3 ]; then
         # Edge lattice to node lattice
         echo "$(date): converting edge PLF to node PLFs for $dset"
-        nj=$(ls $plf_edge_dir/plf.*.txt | wc -l)
+        nj=$(ls $dset_output_dir/plf_sau_edge_skip/plf.*.txt | wc -l)
         mkdir -p $plf_node_dir || exit 1;
         $train_cmd JOB=1:$nj $plf_node_dir/log/edge2node.JOB.log \
             python local/lattice_preprocess/preproc-lattice.py \
-            $plf_edge_dir/plf.JOB.txt $plf_node_dir/plf.node.JOB.txt || exit 1;
-        cp $plf_edge_dir/plf.uttid $plf_node_dir
+            $dset_output_dir/plf_sau_edge_skip/plf.JOB.txt $plf_node_dir/plf.node.JOB.txt || exit 1;
+        cp $dset_output_dir/plf_sau_edge_skip/plf.uttid $plf_node_dir
     fi
 
     if [ $stage -le 4 ]; then
