@@ -28,13 +28,6 @@ fairseq_bin_dir=exp/lat_mt_subword_nmt/bpe_bin
 dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest" "train")
 fairseq_dsets=("valid" "test" "test1" "test2" "test3" "test4" "train")
 
-
-# if [ $# -ne 4 ]; then
-#     echo "Usage: $0 <bpe-code-dir> <input-data-dir> <output-bpe-dir> <exp-dir>"
-#     echo "E.g.: $0 exp/bpe_es_en_lc_subword_nmt data/espnet_prepared data/gold_mt/bpe_subword_nmt exp/gold_mt_subword_nmt"
-#     exit 1
-# fi
-
 if [ $stage -le 0 ]; then
     echo "$(date) Preprocess lattices for source dataset"
     bash local/lattice_preprocess/run_lattice_preprocess.sh --stage -1 \
@@ -57,7 +50,7 @@ if [ $stage -le 1 ]; then
                     cut -f 2- -d " " | sed -e 's/\&apos\;/ \&apos\; /g' |\
                     subword-nmt apply-bpe -c $bpe_code_dir/code.txt \
                         --vocabulary $bpe_code_dir/vocab.all.txt \
-                        --glossaries "$(cat ${bpe_code_dir}/glossaries.txt)" \
+                        --glossaries $(cat ${bpe_code_dir}/glossaries.txt | tr -s '\n' ' ') \
                         --vocabulary-threshold 1 > $bpe_dir/$d.$target_lang || exit 1
             else
                 echo "$target_text_dir/$d.$target_lang does not exist !" && exit 1;
