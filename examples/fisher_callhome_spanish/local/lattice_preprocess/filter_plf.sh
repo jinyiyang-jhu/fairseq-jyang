@@ -18,7 +18,7 @@ cat $plf_file | awk 'NR==FNR {a[$1];next} $1 in a{if (NF !=1 ) {print $0} else {
 num_src=$(wc -l $utt_list | cut -d " " -f1)
 num_current=$(wc -l ${plf_filtered_file}.tmp | cut -d " "  -f1)
 if [ $num_src -ne $num_current ]; then
-    echo "Number of filtered utterances differs from given utt list !" && exit 1;
+    echo "Number of filtered utterances differs from given utt list: $num_src vs $num_current !"
 fi
 
 # Reorder the output as the same order as input file
