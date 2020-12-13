@@ -1,0 +1,9 @@
+\[laughter\]
+\[noise\]
+\[oov\]
+<s>
+</s>
+<unk>
+<eps>
+<pad>
+&apos;

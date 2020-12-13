@@ -35,10 +35,14 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
-    filtered_lat=$new_lat_dir/analyze/lattice_under_thres.depth
+    filtered_lat=$new_lat_dir/analyze/lattice_below_thres.depth
+    skipped_lat=$new_lat_dir/analyze/lattice_above_thres.depth
     [ ! -f $filtered_lat ] || rm $filtered_lat || exit 1;
+    [ ! -f $skipped_lat ] || rm $skipped_lat || exit 1;
+
     for n in $(seq 1 $nj); do
         awk -v thres=$depth_thres '$2<=thres' $new_lat_dir/analyze/lat.$n.depth >> $filtered_lat
+        awk -v thres=$depth_thres '$2>thres' $new_lat_dir/analyze/lat.$n.depth >> $skipped_lat
     done
 fi
 
