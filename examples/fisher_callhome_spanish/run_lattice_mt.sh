@@ -3,10 +3,10 @@
 
 stage=1
 preprocess_stage=1
-ngpus=4
+ngpus=2
 
-conf="conf/lat_transformer_bpe_Nov16.sh"
-exp_dir=exp/lat_mt_subword_nmt_Nov16
+#conf="conf/lat_transformer_bpe_Nov16.sh"
+#exp_dir=exp/lat_mt_subword_nmt_Nov16
 
 . cmd.sh
 . path.sh
@@ -76,8 +76,8 @@ if [ $stage -le 1 ]; then
         --log-format json || exit 1
 fi
 
-if [ $stage -le 2 ]; then
-    for idx in $(seq 0 $((${#dsets[@]}-1))); do
+for idx in $(seq 0 $((${#dsets[@]}-1))); do
+    if [ $stage -le 2 ]; then
         dset=${dsets[$idx]}
         dset_name=${original_dsets[idx]}
         decode_dir=$exp_dir/decode_${dset_name}_${decode_mdl}
@@ -93,7 +93,10 @@ if [ $stage -le 2 ]; then
             --remove-bpe "$bpe_type" \
             --num-workers $decode_num_workers \
             > $decode_dir/results_${decode_mdl}.txt || exit 1
-        # echo "$(date) => scoring BLEU for $dset_name with MOSES tools"
+    fi
+
+    if [ $stage -le 3 ]; then
+         echo "$(date) => TBD scoring BLEU for $dset_name with MOSES tools"
         # TODO
-    done
-fi
+    fi
+done
