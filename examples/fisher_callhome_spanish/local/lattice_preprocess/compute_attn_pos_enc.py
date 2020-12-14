@@ -50,33 +50,27 @@ def binarize_text(ds, words, dict):
         "ntok": ntok
     }
 
-def tokenization_lat(word_seq, bpe_codes, bpe_vocab, bpe_gloss):
+def tokenization_lat(word_seq, bpe_tokenizer, apos_process=" &apos; "):
     """
     Tokenization for lattice text. Return the tokenized strings and id maps.
     Args:
     word_seq (list): a list of words (str)
-    bpe_codes (codecs.StreamReaderWriter): bpe code file
-    bpe_vocab (codecs.StreamReaderWriter): bpe vocabulary file
-    bpe_gloss (str): a file contains bpe glossaries
+    bpe_tokenizer: BPE object
+    apos_process (bool): if True, convert apostrophe to &apos;
     """
     split_tokens = []
     split_map = []
-
-    with open(bpe_gloss, 'r') as f:
-        glossaries = f.readlines()
-    glossaries = [x.strip() for x in glossaries]
-    bpe = BPE(codes=bpe_codes, vocab=bpe_vocab, glossaries=glossaries)
-
     for i, word in enumerate(word_seq):
-        tokens_str = bpe.process_line(line=word)
+        if apos_process:
+            word = word.replace("'", " &apos; ")
+        tokens_str = bpe_tokenizer.process_line(line=word)
         tokens = tokens_str.split(' ')
         split_tokens.extend([t for t in tokens])
         split_map.extend([(i, n) for n in range(len(tokens))])
     return split_tokens, split_map
 
-def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, output_dir,
-                bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True, 
-                mask_direction=None, linearize=False):
+def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, output_dir, bpe_tokenizer,
+                probabilistic_masks=True, mask_direction=None, linearize=False, apos_process=" &apos; "):
     """
     Compute the attention masks and positional encoding from lattice.
     Binarize the dataset to Fairseq idx and bin files.
@@ -97,8 +91,7 @@ def compuate_and_binarize_dataset(lattice_file, dset_name, lat_utt_id, vocab, ou
             tokens = line.split('\t')
             uttid = tokens.pop(0)
             lattice = lat_reader.read_sent(tokens[0], i)
-            tokens, mapping = tokenization_lat(
-                lattice.str_tokens(), bpe_codes, bpe_vocab, bpe_gloss)
+            tokens, mapping = tokenization_lat(lattice.str_tokens(), bpe_tokenizer, apos_process=apos_process)
             nodes = []
             node_map = {}
             for j, (node_idx, n) in enumerate(mapping):
@@ -157,6 +150,8 @@ def main():
     parser.add_argument('--bpe_vocab', type=str, required=True,  help='BPE vocabulary')
     parser.add_argument('--bpe_gloss', type=str, required=True, help='BPE glossaries terms')
     parser.add_argument('--bpe_vocab_thres', type=str, default=1,help='BPE vocabulary frequency threshod')
+    parser.add_argument('--apos_process', type=str, default=" &apos; ",help='Replace apostrophe with \" &apos; "')
+
     
     args = parser.parse_args()
     bpe_codes = codecs.open(args.bpe_code, encoding='utf-8')
@@ -178,9 +173,13 @@ def main():
     else:
         mask_direction = args.prob_mask_direction
 
-    compuate_and_binarize_dataset(args.lat_ifile, args.dset_name, lat_utt_id, vocab, args.output_dir,
-        bpe_codes, bpe_vocab, bpe_gloss, probabilistic_masks=True,
-        mask_direction=mask_direction, linearize=False)
+    with open(bpe_gloss, 'r') as f:
+        glossaries = f.readlines()
+    glossaries = [x.strip() for x in glossaries]
+    bpe_tokenizer = BPE(codes=bpe_codes, vocab=bpe_vocab, glossaries=glossaries)
+
+    compuate_and_binarize_dataset(args.lat_ifile, args.dset_name, lat_utt_id, vocab, args.output_dir, bpe_tokenizer,
+        probabilistic_masks=True, mask_direction=mask_direction, linearize=False, apos_process=args.apos_process)
 
 if __name__ == '__main__':
     main()
