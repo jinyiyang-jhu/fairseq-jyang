@@ -27,14 +27,15 @@ fairseq_dsets=("valid" "test" "test1" "test2" "test3" "train")
 #     echo "E.g.: $0 data/kaldi/train_lattice data/common_espnet_kaldi/ data/common_espnet_kaldi data/lang/words.txt exp/bpe_es_en_lc_subword_nmt exp/lat_mt_subword_nmt/bpe_bin/dict.es.txt exp/lat_mt/bin"
 #     exit 1
 # fi
+fairseq_bin_dir=$1
 
 kaldi_lat_dir="kaldi_data/kaldi_lat_dir"
-output_dir="data/plf_pruned_beam_${beam}_acwt_${acwt}_lmwt_${lmwt}_depth_thres_${lat_depth_thres}"
+output_dir="data/plf_lat_pruned_beam_${beam}_acwt_${acwt}_lmwt_${lmwt}_depth_thres_${lat_depth_thres}"
 uttid_dir="data/uttids"
 word_map="kaldi_data/data/lang_test/words.txt"
 bpe_code_dir="exp/bpe_subword_nmt"
 fairseq_bpe_dict="exp/mt_gold/bpe_bin/dict.es.txt"
-fairseq_bin_dir="exp/mt_lat_transformer/bpe_bin"
+#fairseq_bin_dir="exp/mt_lat_transformer/bpe_bin"
 mkdir -p $fairseq_bin_dir || exit 1;
 
 for idx in $(seq 0 $((${#dsets[@]}-1))); do
@@ -45,7 +46,7 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
     lat_processed=$dset_output_dir/plf_binarized
 
     if [ $stage -le 0 ]; then
-        echo "$(date): converting lattices to FSTs for $dset"
+        echo "$(date): converting lattices to PLF (edge) for $dset"
 
         # Analysis on lattices for the lattice depth (avergae number of arcs per frame)
         bash local/lattice_preprocess/lattice_prune.sh --acwt $acwt --beam $beam --depth_thres $lat_depth_thres $lat_dir $lat_pruned_dir
@@ -152,4 +153,5 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
         awk '{print $1" "NR-1}' $uttid_file.tmp > $uttid_file
         rm $uttid_file.tmp
     fi
+    echo -e " prune beam: ${beam}\n prune acwt: ${acwt}\n prune lmwt: ${lmwt}\n depth thres: ${lat_depth_thres}" > $fairseq_bin_dir/lat.info
 done
