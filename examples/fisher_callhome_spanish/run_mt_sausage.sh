@@ -128,7 +128,7 @@ fi
 
 if [ $stage -le 5 ]; then
   echo "$(date) Train lattice transformer"
-  bash run_lattice_mt.sh $lat_conf $lat_trans_mdl_dir --ngpus $ngpu
+  loca/train_lattice_transformer.sh $lat_conf $lat_trans_mdl_dir --ngpus $ngpu
 fi
 
 
