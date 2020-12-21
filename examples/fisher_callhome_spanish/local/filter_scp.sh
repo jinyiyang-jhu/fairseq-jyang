@@ -12,7 +12,7 @@ done
 
 #cat $plf_file | awk 'NF!=1' | awk 'NR==FNR {a[$1];next} $1 in a{print $0}' $utt_list - \
 #    > $plf_filtered_file
-cat $input | awk 'NR==FNR {a[$1];next} $1 in a{if (NF !=1 ) {print $0} else {print $1" [noise]"}}' $filter - \
+cat $input | awk 'NR==FNR {a[$1];next} $1 in a{if (NF !=1 ) {print $0} else {print $1" [oov]"}}' $filter - \
     > ${output}.tmp
 
 num_src=$(wc -l $filter | cut -d " " -f1)
