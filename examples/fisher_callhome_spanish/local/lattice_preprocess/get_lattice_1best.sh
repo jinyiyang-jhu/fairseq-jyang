@@ -4,11 +4,11 @@
 
 lat_dir="kaldi_data/kaldi_lat_dir"
 uttid_dir="data/uttids"
-output_dir="data"
+output_dir="data/1best"
 src=".es"
 
-dsets=("fisher_dev" "fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest" "train")
-fairseq_dsets=("valid" "test" "test1" "test2" "test3" "test4" "train")
+dsets=("fisher_dev" "fisher_dev2" "fisher_test" "callhome_devtest" "callhome_evltest" "train")
+fairseq_dsets=("valid" "test" "test1" "test2" "test3" "train")
 
 . cmd.sh
 . path.sh
@@ -16,6 +16,8 @@ fairseq_dsets=("valid" "test" "test1" "test2" "test3" "test4" "train")
 
 for idx in $(seq 0 $((${#dsets[@]}-1))); do
     dset=${dsets[$idx]}
+    mkdir -p $output_dir/${dset}${src} || exit 1;
+    echo "$(date) Getting 1best for $dset"
     if [ -f $lat_dir/${dset}${src}/scoring_kaldi/best_wer ]; then
         opts=$(cat  $lat_dir/${dset}${src}/scoring_kaldi/best_wer | rev | cut -d "/" -f 1 | rev)
         lmwt=$(echo $opts | cut -d "_" -f2)
@@ -25,7 +27,7 @@ for idx in $(seq 0 $((${#dsets[@]}-1))); do
             > $lat_dir/${dset}${src}/scoring_kaldi/1best.txt
         
         local/filter_scp.sh $uttid_dir/$dset.uttids $lat_dir/${dset}${src}/scoring_kaldi/1best.txt \
-            $output_dir/${dset}${src}/text.1best
+            $output_dir/${dset}${src}/text
     else
         echo "Generating 1best path from lattice: $lat_dir/${dset}${src}"
         # TBD
