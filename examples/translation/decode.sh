@@ -3,12 +3,14 @@
 # This script decodes given test sets, with a trained model, using Fairseq.
 
 skip_decode=false
+detok=true
 preprocess_num_workers=40
 decode_mdl="checkpoint_best"
 bpe_type="sentencepiece"
 generate_bsz=32
 ori_sets=("dev" "test" "sharedeval-bc" "sharedeval-bn")
 bin_sets=("valid" "test" "test1" "test2")
+nprocessor=4
 
 . path.sh
 . parse_options.sh || exit 1;
@@ -38,9 +40,17 @@ for i in $(seq 0 $((${#ori_sets[@]}-1))); do
         -o $decode_dir/results_${decode_mdl}.txt -sync y -m ea -M jyang126@jhu.edu \
         decode_interactive.sh $conf $bpe_dir/$set_name.bpe."$src" || exit 1;
     fi
+    if $detok ; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') detokenize with sacremoses: $src-$tgt:$src"
+        grep "S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
+            sacremoses -l $tgt -j $nprocessor detokenize | sed "s/ '/'/; s/' /'/g" > $decode_dir/text.ref.$tgt
+        grep "H-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
+            sacremoses -l $tgt -j $nprocessor detokenize | sed "s/ '/'/; s/' /'/g" > $decode_dir/text.hyp.$tgt
+    else
+        grep "S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.ref.$tgt
+        grep "H-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.hyp.$tgt
+    fi
     echo "$(date '+%Y-%m-%d %H:%M:%S') scoring for $src-$tgt:$src"
-    grep "S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.ref.$tgt
-    grep "H-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.hyp.$tgt
     fairseq-score -s $decode_dir/text.hyp.$tgt \
         -r $data_dir/$set_name/text.$tgt \
         --ignore-case \

@@ -1,9 +1,11 @@
 # Data and model paths
 src="zh"
 tgt="en"
-data_dir=data
-bpe_dir=data/preprocessed/bpe
-exp_dir=exp/zh-en-spm-30k
+bpe_type="sentencepiece"
+detok=false
+data_dir=/exp/jyang1/exp/gale_man_mt/data
+bpe_dir=/exp/jyang1/exp/gale_man_mt/data/preprocessed/bpe
+exp_dir=/exp/jyang1/exp/gale_man_mt/exp/zh-en-spm-30k
 
 # Model parameters
 arch="transformer"
