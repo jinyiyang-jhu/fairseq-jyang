@@ -1,11 +1,18 @@
 # Data and model paths
-src="zh"
-tgt="en"
-bpe_type="sentencepiece"
-detok=false
 data_dir=/exp/jyang1/exp/gale_man_mt/data
 bpe_dir=/exp/jyang1/exp/gale_man_mt/data/preprocessed/bpe
 exp_dir=/exp/jyang1/exp/gale_man_mt/exp/zh-en-spm-30k
+sets=("train" "dev" "test" "sharedeval-bn" "sharedeval-bc")
+
+# Text preprocess parameters
+src="zh"
+tgt="en"
+bpe_src=30000 # Number of BPE units for source language
+bpe_tgt=30000 # Number of BPE units for target language
+bpe_type="sentencepiece"
+
+# Decode / score parameters
+detok=false
 
 # Model parameters
 arch="transformer"
