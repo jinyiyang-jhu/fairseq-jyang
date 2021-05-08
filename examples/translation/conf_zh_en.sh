@@ -10,10 +10,12 @@ src="zh"
 tgt="en"
 bpe_src=30000 # Number of BPE units for source language
 bpe_tgt=30000 # Number of BPE units for target language
-bpe_type="sentencepiece"
+bpe_type="sentencepiece" # if using subword-nmt, set it to "@@ "
+spm_input_sentence_size=1000000 # Maximum number of sentences loaded from train text; set it smaller for extreme large corpus to avoid memory issue
 
 # Decode / score parameters
 detok=false
+#generate_bsz=32 # Decoding batch size 
 
 # Model parameters
 arch="transformer"

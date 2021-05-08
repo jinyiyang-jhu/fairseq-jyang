@@ -24,7 +24,10 @@ if [ $stage -le 1 ]; then
             --model_prefix=$bpe_dir/bpe.$src \
             --vocab_size=$bpe_src \
             --character_coverage=1.0 \
+            --input_sentence_size=$spm_input_sentence_size \
+            --shuffle_input_sentence=true \
             --model_type=bpe || exit 1;
+        echo "Learning BPE done: $src"
     fi
 
     if [ ! -f $bpe_dir/bpe.$tgt.model ]; then
@@ -33,7 +36,10 @@ if [ $stage -le 1 ]; then
             --model_prefix=$bpe_dir/bpe.$tgt \
             --vocab_size=$bpe_tgt \
             --character_coverage=1.0 \
+            --input_sentence_size=$spm_input_sentence_size \
+            --shuffle_input_sentence=true \
             --model_type=bpe || exit 1;
+        echo "Learning BPE done: $tgt"
     fi
 
     for dset in "${sets[@]}"; do
