@@ -7,9 +7,6 @@ detok=true
 preprocess_num_workers=40
 decode_mdl="checkpoint_best"
 bpe_type="sentencepiece"
-generate_bsz=32
-ori_sets=("dev" "test" "sharedeval-bc" "sharedeval-bn")
-bin_sets=("valid" "test" "test1" "test2")
 nprocessor=4
 
 . path.sh
@@ -26,9 +23,9 @@ source $conf
 
 bin_dir=$exp_dir/bpe_bin
 
-for i in $(seq 0 $((${#ori_sets[@]}-1))); do
+for i in $(seq 1 $((${#sets[@]}-1))); do
 (   
-    set_name=${ori_sets[$i]}
+    set_name=${sets[$i]}
     bin_name=${bin_sets[$i]}
     decode_dir=$exp_dir/decode_${set_name}_${decode_mdl}
     #awk '{print $1}' $text_dir/$dset_name.en/text > $bin_dir/$dset.uttid || exit 1;

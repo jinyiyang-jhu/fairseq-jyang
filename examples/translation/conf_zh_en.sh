@@ -2,7 +2,8 @@
 data_dir=/exp/jyang1/exp/gale_man_mt/data
 bpe_dir=/exp/jyang1/exp/gale_man_mt/data/preprocessed/bpe
 exp_dir=/exp/jyang1/exp/gale_man_mt/exp/zh-en-spm-30k
-sets=("train" "dev" "test" "sharedeval-bn" "sharedeval-bc")
+sets=("train" "dev" "test" "sharedeval-bn" "sharedeval-bc") # Original data set names
+bin_sets=("train" "valid" "test" "test1" "test2") # Fairseq bin set names
 
 # Text preprocess parameters
 src="zh"
