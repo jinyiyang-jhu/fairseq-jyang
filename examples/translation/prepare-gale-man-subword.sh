@@ -66,7 +66,7 @@ if [ $stage -le 2 ]; then
         for t in $src $tgt; do
             echo "Applying BPE for $dset: $t"
             subword-nmt apply-bpe -c $bpe_dir/bpe.code.$t \
-                --vocabulary $bpe_dir/bpe.vocab.$t
+                --vocabulary $bpe_dir/bpe.vocab.$t \
                 < $tok_dir/$dset/text.tok.$t \
                 > $bpe_dir/$dset.bpe.$t || exit 1;
         done

@@ -13,8 +13,10 @@ if [ $# -ne 1 ]; then
 fi
 
 conf=$1
+. path.sh || exit 0;
 . $conf
 
-prepare-text.sh --stage $prep_stage $conf || exit 1;
-train.sh --stage $train_stage $conf || exit 1;
-decode.sh --skip-decode $skip_decode $conf || exit 1;
+./prepare-text.sh --stage $prep_stage $conf || exit 1;
+
+./train.sh --stage $train_stage $conf || exit 1;
+./decode.sh --skip-decode $skip_decode $conf || exit 1;

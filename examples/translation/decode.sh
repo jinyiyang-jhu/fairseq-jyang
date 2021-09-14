@@ -39,13 +39,13 @@ for i in $(seq 1 $((${#sets[@]}-1))); do
     fi
     if $detok ; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') detokenize with sacremoses: $src-$tgt:$src"
-        grep "S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
+        grep "^S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
             sacremoses -l $tgt -j $nprocessor detokenize | sed "s/ '/'/; s/' /'/g" > $decode_dir/text.ref.$tgt
-        grep "H-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
+        grep "^D-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- |\
             sacremoses -l $tgt -j $nprocessor detokenize | sed "s/ '/'/; s/' /'/g" > $decode_dir/text.hyp.$tgt
     else
-        grep "S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.ref.$tgt
-        grep "H-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.hyp.$tgt
+        grep "^S-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.ref.$src
+        grep "^D-" $decode_dir/results_${decode_mdl}.txt | cut -d$'\t' -f3- > $decode_dir/text.hyp.$tgt
     fi
     echo "$(date '+%Y-%m-%d %H:%M:%S') scoring for $src-$tgt:$src"
     fairseq-score -s $decode_dir/text.hyp.$tgt \

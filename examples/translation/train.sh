@@ -19,6 +19,7 @@ conf=$1
 source $conf
 bin_dir=$exp_dir/bpe_bin
 
+mkdir -p $bin_dir || exit 1;
 if [ $stage -le 0 ]; then
   # fairseq-preprocess on gold transcript and translations
   echo "$(date '+%Y-%m-%d %H:%M:%S') fairseq-preprocess for $src-$tgt"
@@ -70,6 +71,12 @@ if [ $stage -le 1 ]; then
         --save-dir $exp_dir/checkpoints \
         --save-interval $save_interval \
         --log-format json \
+        --eval-bleu \
+        --eval-bleu-args "'{\"beam\":5, \"max_len_a\":1.2, \"max_len_b\": 10}'" \
+        --eval-bleu-detok moses \
+        --eval-bleu-remove-bpe \
+        --eval-bleu-print-samples \
+        --best-checkpoint-metric bleu --maximize-best-checkpoint-metric || exit 1
         --tensorboard-logdir $exp_dir/tensorboard-log || exit 1
 fi
 
