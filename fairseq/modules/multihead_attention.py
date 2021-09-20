@@ -148,7 +148,7 @@ class MultiheadAttention(nn.Module):
 
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
-        assert embed_dim == self.embed_dim
+        assert embed_dim == self.embed_dim, f"query dim {embed_dim} != {self.embed_dim}"
         assert list(query.size()) == [tgt_len, bsz, embed_dim]
         if key is not None:
             src_len, key_bsz, _ = key.size()
@@ -403,21 +403,27 @@ class MultiheadAttention(nn.Module):
         # leaves the frame, there will be a time when prev or current
         # is None
         elif prev_key_padding_mask is not None:
-            filler = torch.zeros(
-                (batch_size, src_len - prev_key_padding_mask.size(1)),
-                device=prev_key_padding_mask.device,
-            )
-            new_key_padding_mask = torch.cat(
-                [prev_key_padding_mask.float(), filler.float()], dim=1
-            )
+            if src_len > prev_key_padding_mask.size(1):
+                filler = torch.zeros(
+                    (batch_size, src_len - prev_key_padding_mask.size(1)),
+                    device=prev_key_padding_mask.device,
+                )
+                new_key_padding_mask = torch.cat(
+                    [prev_key_padding_mask.float(), filler.float()], dim=1
+                )
+            else:
+                new_key_padding_mask = prev_key_padding_mask.float()
         elif key_padding_mask is not None:
-            filler = torch.zeros(
-                (batch_size, src_len - key_padding_mask.size(1)),
-                device=key_padding_mask.device,
-            )
-            new_key_padding_mask = torch.cat(
-                [filler.float(), key_padding_mask.float()], dim=1
-            )
+            if src_len > key_padding_mask.size(1):
+                filler = torch.zeros(
+                    (batch_size, src_len - key_padding_mask.size(1)),
+                    device=key_padding_mask.device,
+                )
+                new_key_padding_mask = torch.cat(
+                    [filler.float(), key_padding_mask.float()], dim=1
+                )
+            else:
+                new_key_padding_mask = key_padding_mask.float()
         else:
             new_key_padding_mask = prev_key_padding_mask
         return new_key_padding_mask
