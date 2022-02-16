@@ -1,5 +1,5 @@
 # model parameters
-arch="transformer_iwslt_de_en"
+arch="transformer"
 task="translation"
 
 share_embeddings="" # if want to use this option, add "--share-all-embeddings" in the train script.
@@ -9,14 +9,16 @@ save_interval=1
 #keep_last_epochs=30
 
 # encoder
-#encoder_layers=2
-#encoder_embed_dim=256
-#encoder_hidden_size=512
+encoder_layers=6
+encoder_embed_dim=512
+encoder_hidden_size=1024
+encoder_attention_heads=4
 
 # decoder
-#decoder_layers=2
-#decoder_embed_dim=256
-#decoder_hidden_size=512
+decoder_layers=6
+decoder_embed_dim=512
+decoder_hidden_size=1024
+decoder_attention_heads=4
 
 # training parameters
 optimizer="adam"
@@ -34,7 +36,7 @@ warmup_updates=5000
 dropout=0.3
 weight_decay=0.0001
 #length_norm_loss=
-#batch_size=64
+batch_size=64
 max_tokens=4096
 criterion="label_smoothed_cross_entropy"
 label_smoothing=0.1
