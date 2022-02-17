@@ -15,7 +15,7 @@ trainpref=${bpedir}/train.bpe.${src_lan}-${tgt_lan}
 validpref=${bpedir}/dev.bpe.${src_lan}-${tgt_lan}
 testpref=${bpedir}/test1.bpe.${src_lan}-${tgt_lan}
 bindir=$destdir/bin_${src_lan}2${tgt_lan}
-testset_name="test" # "valid" for dev; "test" for test1
+testset_name="valid" # "valid" for dev; "test" for test1
 conf=conf/conf_ta_en.sh
 
 . path.sh
@@ -36,7 +36,6 @@ if [ $stage -le 1 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') fairseq-train for ${src_lan}-${tgt_lan}"
     mkdir -p $destdir/log || exit 1
     cp $conf $destdir
-    #$cuda_cmd --gpu $ngpus ${destdir}/log/train.log \
     qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_train \
         -l gpu=$ngpus,num_proc=4,mem_free=64G,h_rt=600:00:00 \
         -o ${destdir}/log/train.log -sync y -m ea -M jyang126@jhu.edu \
@@ -90,8 +89,6 @@ if [ $stage -le 2 ]; then
     decode_dir=${destdir}/decode_${testset_name}_${decode_mdl}
     echo "$(date '+%Y-%m-%d %H:%M:%S') fairseq-interactive for ${src_lan}-${tgt_lan}:${src_lan}"
     mkdir -p $decode_dir || exit 1
-    #$cuda_cmd --gpu 1 --mem 8G $decode_dir/log/decode.log \
-   # cat ${bpedir}/${testset_name}.bpe.${src_lan}-${tgt_lan}.${src_lan} \
    [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
     qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
         -l gpu=1,num_proc=10,mem_free=16G,h_rt=600:00:00 \
