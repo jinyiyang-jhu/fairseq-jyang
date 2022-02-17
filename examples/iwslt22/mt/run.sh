@@ -15,7 +15,7 @@ trainpref=${bpedir}/train.bpe.${src_lan}-${tgt_lan}
 validpref=${bpedir}/dev.bpe.${src_lan}-${tgt_lan}
 testpref=${bpedir}/test1.bpe.${src_lan}-${tgt_lan}
 bindir=$destdir/bin_${src_lan}2${tgt_lan}
-testset_name="test1"
+testset_name="test" # "valid" for dev; "test" for test1
 conf=conf/conf_ta_en.sh
 
 . path.sh
@@ -88,7 +88,6 @@ fi
 decode_mdl="checkpoint_best"
 if [ $stage -le 2 ]; then
     decode_dir=${destdir}/decode_${testset_name}_${decode_mdl}
-    awk '{print $1}' ${datadir_ori}/${testset_name}/text.${tgt_case}.${tgt_lan} > ${bindir}/${testset_name}.uttid || exit 1;
     echo "$(date '+%Y-%m-%d %H:%M:%S') fairseq-interactive for ${src_lan}-${tgt_lan}:${src_lan}"
     mkdir -p $decode_dir || exit 1
     #$cuda_cmd --gpu 1 --mem 8G $decode_dir/log/decode.log \
@@ -97,16 +96,17 @@ if [ $stage -le 2 ]; then
     qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
         -l gpu=1,num_proc=10,mem_free=16G,h_rt=600:00:00 \
         -o ${decode_dir}/logs/decode.log -sync y -m ea -M jyang126@jhu.edu \
-            fairseq-generate ${bindir} \
+        fairseq-generate ${bindir} \
             --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
             --task translation \
             --tokenizer moses \
             --path ${destdir}/checkpoints/${decode_mdl}.pt \
             --batch-size 128 \
             --beam 5 \
+            --gen-subset $testset_name \
             --remove-bpe=sentencepiece || exit 1
-    grep ^D $decode_dir/logs/decode.log | cut -f3 > $decode_dir/hyp.txt || exit 1
-    grep ^T $decode_dir/logs/decode.log | cut -f2- > $decode_dir/ref.txt || exit 1
+    grep ^D $decode_dir/logs/decode.log | LC_ALL=C sort -V | cut -f3 > $decode_dir/hyp.txt || exit 1
+    grep ^T $decode_dir/logs/decode.log | LC_ALL=C sort -V | cut -f2- > $decode_dir/ref.txt || exit 1
     sacrebleu $decode_dir/ref.txt -i $decode_dir/hyp.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
     echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding done !"
 fi
