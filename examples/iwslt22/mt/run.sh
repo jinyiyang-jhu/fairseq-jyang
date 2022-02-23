@@ -87,7 +87,7 @@ fi
 decode_mdl="checkpoint_best"
 if [ $stage -le 2 ]; then
     decode_dir=${destdir}/decode_${testset_name}_${decode_mdl}
-    echo "$(date '+%Y-%m-%d %H:%M:%S') fairseq-interactive for ${src_lan}-${tgt_lan}:${src_lan}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding for ${src_lan}-${tgt_lan}:${src_lan}"
     mkdir -p $decode_dir || exit 1
    [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
     qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
