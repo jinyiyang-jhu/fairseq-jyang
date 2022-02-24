@@ -3,7 +3,8 @@ import io
 import re
 import sys
 
-english_filter = re.compile(r'\(|\)|\#|\+|\=|\?|\!|\;|\.|\,|\"|\:')
+#english_filter = re.compile(r'\(|\)|\#|\+|\=|\?|\!|\;|\.|\,|\"|\:')
+english_filter = re.compile(r'\!|\"|\#|\$|\%|\&|\\|\(|\)|\*|\+|\,|\-|\.|\/|\:|\;|\<|\=|\>|\?|\@|\[|\]|\^|\_|\`|\{|\||\}|\~')
 
 def normalize_text(utterance):
     return re.subn(english_filter, '', utterance)[0].lower()
