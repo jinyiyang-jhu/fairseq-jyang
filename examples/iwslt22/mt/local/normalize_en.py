@@ -15,5 +15,5 @@ def main():
             text = normalize_text(line.strip())
             print(text, file=sys.stdout)
 
-if '__name__' == '__main__':
+if __name__ == '__main__':
     main()
