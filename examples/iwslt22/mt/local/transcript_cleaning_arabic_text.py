@@ -24,8 +24,8 @@ def read_tsv(data_file):
     text_data = list()
     infile = open(data_file, encoding='utf-8')
     for line in infile:
-        if not line.strip():
-            continue
+        # if not line.strip():
+        #     continue
         line = line.strip()
         # text= line.split('\t')
         # text_data.append(text)
@@ -197,29 +197,25 @@ def main():
   #division_set = str(sys.argv[3]) # train | test
   data = read_tsv(input_file)
   new_data = []
-  for i in range(len(data)):
-    tokens = data[i].split()
-    tokens = data_cleaning(" ".join(tokens)).split()
-    # if to_BW == "True":
-    # 	for i in range(len(tokens[1:])):
-    # 		tokens[i+1] = fromBuckWalter(tokens[i+1])
-    # 	new_data.append(" ".join(tokens))
-        
-    # else:
-    
-    # if len(tokens) >1 :
-      
-    new_data.append(" ".join(tokens))
-    
-    # else:
-    #   if division_set == 'train':
-    #     print("Audio with single character is ignored: "+" ".join(tokens))
-    #   else:
-        # new_data.append(tokens[0])
+  with open(input_file, 'r', encoding='utf-8') as f, open(output_file, 'w', encoding='utf-8') as ofh:
+    for line in f:
+      line = line.strip()
+      cleaned_line = " ".join(data_cleaning(line).split())
+      print(cleaned_line, file=ofh)
+
+
+  # for i in range(len(data)):
+  #   tokens = data[i].split()
+  #   tokens = data_cleaning(" ".join(tokens)).split()
+
+  #   if len(tokens) > 0 :
+  #     new_data.append(" ".join(tokens))
+  #   else:
+  #     new_data.append("")
       
     
-  df = pd.DataFrame(data=new_data)
-  df.to_csv(output_file, sep = '\n', header=False, index=False)
+  # df = pd.DataFrame(data=new_data)
+  # df.to_csv(output_file, sep = '\n', header=False, index=False)
 		
 if __name__ == "__main__":
     main()
