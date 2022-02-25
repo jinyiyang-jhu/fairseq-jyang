@@ -68,7 +68,7 @@ def remove_punctuations(text):
 	
 	arabic_punctuations = '''`÷×؛<>_()*&^%][ـ،/:"؟.,'{}~¦+|!”…“–ـ'''
 	english_punctuations = string.punctuation
-	all_punctuations = set(arabic_punctuations + english_punctuations)-{'@','%'} # remove all non verbatim punctuations
+	all_punctuations = set(arabic_punctuations + english_punctuations)-{"'"} # remove all non verbatim punctuations
 	
 	for p in all_punctuations:
 		if p in text:
