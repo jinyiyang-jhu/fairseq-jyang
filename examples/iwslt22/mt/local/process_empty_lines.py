@@ -25,14 +25,6 @@ for i in range(len(f1_lines)):
     line1 = f1_lines[i].strip()
     line2 = f2_lines[i].strip()
     
-    if not line1 and not line2: # both empty
-        continue
-    elif not line1: # only src empty
-        # print(line1 + ' <> ' + line2)
-        print(unk, file=f3)
-    elif not line2: # only tgt empty
-        # print(line1 + ' <> ' + line2)
-        print(unk, file=f4)
-    else: # both not empty
+    if line1 and line2: # both not empty
         print(line1, file=f3)
         print(line2, file=f4)
