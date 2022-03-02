@@ -6,7 +6,6 @@ ngpus=4
 
 src_lan="ta"
 tgt_lan="en"
-tgt_case="tc"
 
 # path_to_eval_src=$1 # scp file with words: <uttid> <token1> <token2> ...
 # path_to_eval_tgt=$2 # scp file with words: <uttid> <token1> <token2> ...
@@ -19,14 +18,19 @@ tgt_case="tc"
 #     echo "Usage: $0 <path-to-src-bpe-text> <path-to-tgt-word-text> <path-to-dict-dir> <path-to-bpe-mdl> <path-to-trained-mdl> <path-to-output-dir>"
 #     exit 0
 # fi
+dset="test1"
+path_to_eval_src=~/tools/espnet/egs2/iwslt22_dialect/mt/data/${dset}/text.tc.rm.ta
+#path_to_eval_src=amir_asr_cleaned_BPE1000/${dset}.txt
+path_to_eval_tgt=~/tools/espnet/egs2/iwslt22_dialect/mt/data_clean/${dset}/text.tc.en
+#path_to_bpe_mdl=~/tools/espnet/egs2/iwslt22_dialect/mt/data_clean/spm_bpe/ta_bpe_spm1000/bpe.model
+path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
 
-path_to_eval_src=~/tools/espnet/egs2/iwslt22_dialect/mt/data/test1/text.tc.rm.ta
-#path_to_eval_src=amir_asr/dev.txt
-path_to_eval_tgt=~/tools/espnet/egs2/iwslt22_dialect/mt/data/test1/text.tc.en
-path_to_dict_dir=exp/bin_ta2en
-path_to_bpe_mdl=~/tools/espnet/egs2/iwslt22_dialect/mt/data/spm_bpe/ta_bpe_spm1000/bpe.model
-path_to_mdl=exp/checkpoints/checkpoint_best.pt
-decode_dir=exp/decode_asr_test1_interactive
+#path_to_dict_dir=exp_clean/bin_ta2en
+path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
+#path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
+path_to_mdl=exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt
+#decode_dir=exp_clean/decode_asr_cleaned_BPE1000_${dset}_interactive
+decode_dir=exp_msa-en_bpe2000/decode_spm2000_ta2en_manual_${dset}_interactive
 
 num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
 num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)

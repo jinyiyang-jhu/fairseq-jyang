@@ -8,6 +8,8 @@ tgt_case="tc"
 
 data_feats="data_clean"
 token_listdir="data_clean/spm_bpe"
+src_bpe_model=
+tgt_bpe_model=
 train_set="train"
 dev_set="dev"
 test_set="test1"
@@ -15,11 +17,11 @@ bpemode="bpe"
 
 # src bpe
 src_nbpe=1000
-src_skip_train="False" # train or encode
+src_skip_train="True" # train or encode
 
 # tgt bpe
 tgt_nbpe=1000
-tgt_skip_train="False" # train or encode
+tgt_skip_train="True" # train or encode
 
 oov="<unk>"         # Out of vocabulary symbol.
 blank="<blank>"     # CTC blank symbol
@@ -32,12 +34,14 @@ for lan in "${src_lang}" "${tgt_lang}"; do
         nbpe=$src_nbpe
         bpe_nlsyms="--user_defined_symbols="""
         skip_train=${src_skip_train}
+        bpe_model=${src_bpe_model}
     else
         lan_case=$tgt_case
         nbpe=$tgt_nbpe
         bpe_nlsyms="--user_defined_symbols=\"&apos;\",\"&amp;\",\"&quot;\""
         mode=$tgt_mode
         skip_train=${tgt_skip_train}
+        bpe_model=${tgt_bpe_model}
     fi
     echo "bpe_nlsyms is ${bpe_nlsyms}"
     bpe_train_text="${data_feats}/${train_set}/text.${lan_case}.${lan}"
@@ -75,6 +79,11 @@ for lan in "${src_lang}" "${tgt_lang}"; do
         echo "${bos}"
         echo "${eos}"
         } > "${bpetoken_list}"
+    elif [ ! -f $bpe_model ]; then
+        bpe_model=$bpe_model
+    else
+        echo "Not training bpe model but bpe model is not provided ! Exiting ..."
+        exit 1;
     fi
     for dset in "${train_set}" "${dev_set}" "${test_set}"; do
         echo "$(date) Encoding with spm model for language : ${lan} , set is ${dset}"
