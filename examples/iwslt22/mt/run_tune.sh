@@ -8,6 +8,8 @@ src_lan="ta"
 tgt_lan="en"
 src_case="tc.rm"
 tgt_case="tc"
+srcdict="exp_msa-en_bpe2000/bin_ar2en/dict.ar.txt"
+tgtdict="exp_msa-en_bpe2000/bin_ar2en/dict.en.txt"
 src_nbpe=2000
 tgt_nbpe=2000
 # tgt_case="tc"
@@ -72,7 +74,8 @@ fi
 if [ $stage -le 1 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Preprocessing data"
     fairseq-preprocess \
-        --source-lang $src_lan --target-lang $tgt_lan \
+        --source-lang ${src_lan} --target-lang ${tgt_lan} \
+        --srcdict ${srcdict} --tgtdict ${tgtdict} \
         --trainpref $trainpref --validpref $validpref --testpref $testpref \
         --destdir ${bindir} --thresholdtgt 0 --thresholdsrc 0 \
         --workers $nj_preprocess || exit 1;
