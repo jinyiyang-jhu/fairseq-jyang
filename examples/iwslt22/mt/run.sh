@@ -75,7 +75,10 @@ if [ $stage -le 1 ]; then
         --label-smoothing $label_smoothing \
         --save-dir ${destdir}/checkpoints \
         --save-interval $save_interval \
+        --save-interval-updates 2000 \
+        --keep-interval-updates 3 \
         --memory-efficient-fp16 \
+        --skip-invalid-size-inputs-valid-test \
         --log-format json || exit 1
     echo "$(date '+%Y-%m-%d %H:%M:%S') Training succeed !"
 fi
