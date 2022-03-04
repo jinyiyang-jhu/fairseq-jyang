@@ -18,19 +18,22 @@ tgt_lan="en"
 #     echo "Usage: $0 <path-to-src-bpe-text> <path-to-tgt-word-text> <path-to-dict-dir> <path-to-bpe-mdl> <path-to-trained-mdl> <path-to-output-dir>"
 #     exit 0
 # fi
-dset="test1"
-path_to_eval_src=~/tools/espnet/egs2/iwslt22_dialect/mt/data/${dset}/text.tc.rm.ta
+dset="dev"
+path_to_eval_src=data/ta-en_clean/${dset}/text.tc.rm.ta
 #path_to_eval_src=amir_asr_cleaned_BPE1000/${dset}.txt
-path_to_eval_tgt=~/tools/espnet/egs2/iwslt22_dialect/mt/data_clean/${dset}/text.tc.en
+path_to_eval_tgt=data/ta-en_clean/${dset}/text.tc.en
 #path_to_bpe_mdl=~/tools/espnet/egs2/iwslt22_dialect/mt/data_clean/spm_bpe/ta_bpe_spm1000/bpe.model
 path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
 
 #path_to_dict_dir=exp_clean/bin_ta2en
-path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
+#path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
+path_to_dict_dir=exp_msa-en_bpe2000_tune_with_ta/bin_ta2en
 #path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
-path_to_mdl=exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt
+#path_to_mdl=exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt
+path_to_mdl=exp_msa-en_bpe2000_tune_with_ta/checkpoints/checkpoint_best.pt
 #decode_dir=exp_clean/decode_asr_cleaned_BPE1000_${dset}_interactive
-decode_dir=exp_msa-en_bpe2000/decode_spm2000_ta2en_manual_${dset}_interactive
+#decode_dir=exp_msa-en_bpe2000/decode_spm2000_ta2en_manual_${dset}_interactive
+decode_dir=exp_msa-en_bpe2000_tune_with_ta/decode_spm2000_ta2en_manual_${dset}_interactive
 
 num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
 num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)
@@ -58,21 +61,34 @@ if [ $stage -le 0 ]; then
     --output_format=piece \
     < ${decode_dir}/${src_lan}.txt \
     > ${decode_dir}/${src_lan}.bpe.txt
+    
+    mkdir decode_debug/logs -p
+    mkdir -p decode_debug/bin_ta2en
+    fairseq-preprocess \
+        --source-lang ${src_lan} --target-lang ${tgt_lan} \
+        --srcdict exp_msa-en_bpe2000_tune_with_ta/bin_ta2en/dict.ta.txt \
+        --tgtdict exp_msa-en_bpe2000_tune_with_ta/bin_ta2en/dict.en.txt \
+        --validpref decode_debug/valid.ta-en\
+        --testpref decode_debug/test.ta-en\
+        --destdir decode_debug/bin_ta2en --thresholdtgt 0 --thresholdsrc 0 \
+        --workers 4 || exit 1;
 fi
+
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding ${src_lan}-${tgt_lan}:${src_lan}"
 
 [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
-cat ${decode_dir}/${src_lan}.bpe.txt | \
+${decode_cmd} --gpu 1 ${decode_dir}/logs/decode.log \
+    cat ${decode_dir}/${src_lan}.bpe.txt \| \
     fairseq-interactive ${path_to_dict_dir} \
         --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
         --task translation \
         --path ${path_to_mdl}\
         --batch-size 256 \
-        --buffer-size 2000 \
         --fix-batches-to-gpus \
         --beam 5 \
-        --remove-bpe=sentencepiece > $decode_dir/logs/decode.log || exit 1
+        --buffer-size 2000 \
+        --remove-bpe=sentencepiece || exit 1
 grep ^D $decode_dir/logs/decode.log | cut -f3 | detokenizer.perl -q > ${decode_dir}/hyp.txt || exit 1
 sacrebleu ${decode_dir}/${tgt_lan}.txt -i ${decode_dir}/hyp.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
 echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding done !"
