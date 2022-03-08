@@ -8,17 +8,13 @@ tgt_lan="en"
 src_case="tc.rm"
 tgt_case="tc"
 
-# tgt_lan="ta"
-# src_lan="en"
-# tgt_case="tc.rm"
-# src_case="tc"
-
 skip_split="True"
 skip_decode="False"
 
 dset="dev"
 path_to_eval_data=data/ta-en_clean/${dset}
 
+# bpe and dict
 path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
 path_to_dict_dir=exp_msa-en_bpe2000_tune_with_ta/bin_ta2en
 path_to_mdl=exp_msa-en_bpe2000_tune_with_ta/checkpoints/checkpoint_best.pt
@@ -79,7 +75,8 @@ if [ ${skip_decode} != "True" ]; then
                 --beam 5 \
                 --buffer-size 2000 \
                 --remove-bpe=sentencepiece || exit 1
-        grep ^D $decode_dir/split${n}/decode.${n}.log | cut -f3 | detokenizer.perl -q > ${decode_dir}/split${n}/hyp.txt || exit 1
+        grep ^D $decode_dir/split${n}/decode.${n}.log | cut -f3 | \
+            detokenizer.perl -q -no-escape > ${decode_dir}/split${n}/hyp.txt || exit 1
     ) &
     done
     wait
