@@ -102,7 +102,8 @@ elif [ "${cmd_backend}" = jhu ]; then
 
     export train_cmd="queue.pl --mem 2G"
     export cuda_cmd="queue-freegpu.pl --mem 2G --gpu 1 --config conf/queue.conf"
-    export decode_cmd="queue.pl --mem 4G"
+    #export decode_cmd="queue.pl --mem 4G"
+    export decode_cmd="queue.pl --gpu 1 --mem 32G -q gpu.q@@2080 -l h_rt=600:00:00 -m ea -M jyang126@jhu.edu"
     export rtx_cuda_cmd="queue.pl --gpu 1 --mem 32G -q gpu.q@@rtx -l h_rt=600:00:00 -m ea -M jyang126@jhu.edu"
     #use `qconf -shgrpl | xargs -I {} qconf -shgrp {}` to find gpu types 
 else

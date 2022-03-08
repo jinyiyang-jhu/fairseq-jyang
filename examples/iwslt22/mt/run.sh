@@ -89,9 +89,7 @@ if [ $stage -le 2 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding for ${src_lan}-${tgt_lan}:${src_lan}"
     mkdir -p $decode_dir || exit 1
    [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
-    qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
-        -l gpu=1,num_proc=10,mem_free=16G,h_rt=600:00:00 \
-        -o ${decode_dir}/logs/decode.log -sync y -m ea -M jyang126@jhu.edu \
+    ${decode_cmd} --gpu 1 ${decode_dir}/logs/decode.log \
         fairseq-generate ${bindir} \
             --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
             --task translation \
@@ -100,6 +98,7 @@ if [ $stage -le 2 ]; then
             --batch-size 128 \
             --beam 5 \
             --gen-subset $testset_name \
+            --skip-invalid-size-inputs-valid-test \
             --remove-bpe=sentencepiece || exit 1
     grep ^D $decode_dir/logs/decode.log | LC_ALL=C sort -V | cut -f3 > $decode_dir/hyp.txt || exit 1
     grep ^T $decode_dir/logs/decode.log | LC_ALL=C sort -V | cut -f2- > $decode_dir/ref.txt || exit 1

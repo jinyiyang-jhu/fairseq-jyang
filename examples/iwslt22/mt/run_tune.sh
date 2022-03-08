@@ -28,7 +28,7 @@ test_set="test1"
 trainpref=${bpedir}/${train_set}.bpe.${src_lan}-${tgt_lan}
 validpref=${bpedir}/${dev_set}.bpe.${src_lan}-${tgt_lan}
 testpref=${bpedir}/${test_set}.bpe.${src_lan}-${tgt_lan}
-testset_name="valid" # "valid" for dev; "test" for test1
+testset_name="test" # "valid" for dev; "test" for test1
 conf=conf/conf_msa_en_tune_with_ta.sh
 
 
@@ -134,14 +134,15 @@ if [ $stage -le 2 ]; then
 fi
 
 decode_mdl="checkpoint_best"
-if [ $stage -le 2 ]; then
+if [ $stage -le 3 ]; then
     decode_dir=${destdir}/decode_${testset_name}_${decode_mdl}
     echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding for ${src_lan}-${tgt_lan}:${src_lan}"
     mkdir -p $decode_dir || exit 1
    [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
-    qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
-        -l gpu=1,num_proc=10,mem_free=16G,h_rt=600:00:00 \
-        -o ${decode_dir}/logs/decode.log -sync y -m ea -M jyang126@jhu.edu \
+    # qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N fairseq_interactive \
+    #     -l gpu=1,num_proc=10,mem_free=16G,h_rt=600:00:00 \
+    #     -o ${decode_dir}/logs/decode.log -sync y -m ea -M jyang126@jhu.edu \
+    ${rtx_cuda_cmd} --gpu 1 ${decode_dir}/logs/decode.log \
         fairseq-generate ${bindir} \
             --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
             --task translation \

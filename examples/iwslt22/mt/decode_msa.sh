@@ -44,8 +44,8 @@ fi
 
 mkdir -p $decode_dir/logs || exit 1
 
-cat ${path_to_eval_src} | tokenizer.perl -q > ${decode_dir}/${src_lan}.txt
-cat ${path_to_eval_tgt} | detokenizer.perl -q > ${decode_dir}/${tgt_lan}.txt
+cat ${path_to_eval_src} | tokenizer.perl -q -no-escape > ${decode_dir}/${src_lan}.txt
+cat ${path_to_eval_tgt} | detokenizer.perl -q -no-escape > ${decode_dir}/${tgt_lan}.txt
 
 if [ $stage -le 0 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Apply BPE to source data"
