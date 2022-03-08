@@ -1,96 +1,105 @@
 #!/bin/bash
 
 stage=-1
-nj_preprocess=4
-ngpus=4
+nj=8 # no greater than qquota
 
 src_lan="ta"
 tgt_lan="en"
+src_case="tc.rm"
+tgt_case="tc"
 
-# path_to_eval_src=$1 # scp file with words: <uttid> <token1> <token2> ...
-# path_to_eval_tgt=$2 # scp file with words: <uttid> <token1> <token2> ...
-# path_to_dict_dir=$3
-# path_to_bpe_mdl=$4 # BPE model for source data
-# path_to_mdl=$5
-# decode_dir=$6
+# tgt_lan="ta"
+# src_lan="en"
+# tgt_case="tc.rm"
+# src_case="tc"
 
-# if [ $# -ne 6 ]; then
-#     echo "Usage: $0 <path-to-src-bpe-text> <path-to-tgt-word-text> <path-to-dict-dir> <path-to-bpe-mdl> <path-to-trained-mdl> <path-to-output-dir>"
-#     exit 0
-# fi
+skip_split="True"
+skip_decode="False"
+
 dset="dev"
-path_to_eval_src=data/ta-en_clean/${dset}/text.tc.rm.ta
-#path_to_eval_src=amir_asr_cleaned_BPE1000/${dset}.txt
-path_to_eval_tgt=data/ta-en_clean/${dset}/text.tc.en
-#path_to_bpe_mdl=~/tools/espnet/egs2/iwslt22_dialect/mt/data_clean/spm_bpe/ta_bpe_spm1000/bpe.model
+path_to_eval_data=data/ta-en_clean/${dset}
+
 path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
-
-#path_to_dict_dir=exp_clean/bin_ta2en
-#path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
 path_to_dict_dir=exp_msa-en_bpe2000_tune_with_ta/bin_ta2en
-#path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
-#path_to_mdl=exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt
 path_to_mdl=exp_msa-en_bpe2000_tune_with_ta/checkpoints/checkpoint_best.pt
-#decode_dir=exp_clean/decode_asr_cleaned_BPE1000_${dset}_interactive
-#decode_dir=exp_msa-en_bpe2000/decode_spm2000_ta2en_manual_${dset}_interactive
-decode_dir=exp_msa-en_bpe2000_tune_with_ta/decode_spm2000_ta2en_manual_${dset}_interactive
 
-num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
-num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)
-
-if [ ${num_src_lines} -ne ${num_tgt_lines} ]; then
-    echo "Line mismatch: src ($num_src_lines) vs tgt ($num_tgt_lines)"
-    exit 1;
-fi
+decode_dir=exp_msa-en_bpe2000_tune_with_ta/decode_spm2000_ta2en_manual_clean_${dset}_interactive
 
 . path.sh
 . cmd.sh
 . parse_options.sh
 
-mkdir -p $decode_dir/logs || exit 1
+path_to_eval_src=${path_to_eval_data}/text.${src_case}.${src_lan}
+path_to_eval_tgt=${path_to_eval_data}/text.${tgt_case}.${tgt_lan}
 
-sort ${path_to_eval_src} | cut -d" " -f2- | tokenizer.perl -q > ${decode_dir}/${src_lan}.txt
-sort ${path_to_eval_tgt} | cut -d" " -f2- | detokenizer.perl -q > ${decode_dir}/${tgt_lan}.txt
-sort ${path_to_eval_src} | cut -d" " -f1 > ${decode_dir}/${src_lan}.uttids
-sort ${path_to_eval_tgt} | cut -d" " -f1 > ${decode_dir}/${tgt_lan}.uttids
+num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
+num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)
 
-if [ $stage -le 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') Apply BPE to source data"
-    spm_encode \
-    --model=${path_to_bpe_mdl} \
-    --output_format=piece \
-    < ${decode_dir}/${src_lan}.txt \
-    > ${decode_dir}/${src_lan}.bpe.txt
-    
-    mkdir decode_debug/logs -p
-    mkdir -p decode_debug/bin_ta2en
-    fairseq-preprocess \
-        --source-lang ${src_lan} --target-lang ${tgt_lan} \
-        --srcdict exp_msa-en_bpe2000_tune_with_ta/bin_ta2en/dict.ta.txt \
-        --tgtdict exp_msa-en_bpe2000_tune_with_ta/bin_ta2en/dict.en.txt \
-        --validpref decode_debug/valid.ta-en\
-        --testpref decode_debug/test.ta-en\
-        --destdir decode_debug/bin_ta2en --thresholdtgt 0 --thresholdsrc 0 \
-        --workers 4 || exit 1;
+if [ ${skip_split} != "True" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S')  Splitting the dir: ${path_to_eval_data}"
+    bash local/split_scp.sh $nj ${path_to_eval_data} "text.${src_case}.${src_lan}" || exit 1
+    bash local/split_scp.sh $nj ${path_to_eval_data} "text.${tgt_case}.${tgt_lan}" || exit 1
 fi
 
+if [ ${skip_decode} != "True" ]; then
+    for f in "${decode_dir}/hyp.txt" "${decode_dir}/${src_lan}.uttids"; do
+        [ -f $f ] && rm $f 
+    done
+    for n in $(seq $nj); do
+    (
+        mkdir -p ${decode_dir}/split${n} || exit 1
+        if [ ${num_src_lines} -ne ${num_tgt_lines} ]; then
+            echo "Line mismatch: src ($num_src_lines) vs tgt ($num_tgt_lines)"
+            exit 1;
+        fi
+        path_to_eval_src=${path_to_eval_data}/split${nj}/${n}/text.${src_case}.${src_lan}
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding ${src_lan}-${tgt_lan}:${src_lan}"
+        cat ${path_to_eval_src} | cut -d" " -f2- | tokenizer.perl -q -no-escape > ${decode_dir}/split${n}/${src_lan}.txt
+        cat ${path_to_eval_src} | cut -d" " -f1 > ${decode_dir}/split${n}/${src_lan}.uttids
 
-[ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
-${decode_cmd} --gpu 1 ${decode_dir}/logs/decode.log \
-    cat ${decode_dir}/${src_lan}.bpe.txt \| \
-    fairseq-interactive ${path_to_dict_dir} \
-        --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
-        --task translation \
-        --path ${path_to_mdl}\
-        --batch-size 256 \
-        --fix-batches-to-gpus \
-        --beam 5 \
-        --buffer-size 2000 \
-        --remove-bpe=sentencepiece || exit 1
-grep ^D $decode_dir/logs/decode.log | cut -f3 | detokenizer.perl -q > ${decode_dir}/hyp.txt || exit 1
+        if [ $stage -le 0 ]; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') Apply BPE to source data"
+            spm_encode \
+            --model=${path_to_bpe_mdl} \
+            --output_format=piece \
+            < ${decode_dir}/split${n}/${src_lan}.txt \
+            > ${decode_dir}/split${n}/${src_lan}.bpe.txt || exit 1;
+        fi
+
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding ${src_lan}-${tgt_lan}:${src_lan}; split : ${n}"
+
+        ${decode_cmd} --gpu 1 ${decode_dir}/split${n}/decode.${n}.log \
+            cat ${decode_dir}/split${n}/${src_lan}.bpe.txt \| \
+            fairseq-interactive ${path_to_dict_dir} \
+                --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
+                --task translation \
+                --path ${path_to_mdl}\
+                --batch-size 256 \
+                --fix-batches-to-gpus \
+                --beam 5 \
+                --buffer-size 2000 \
+                --remove-bpe=sentencepiece || exit 1
+        grep ^D $decode_dir/split${n}/decode.${n}.log | cut -f3 | detokenizer.perl -q > ${decode_dir}/split${n}/hyp.txt || exit 1
+    ) &
+    done
+    wait
+    echo "$(date '+%Y-%m-%d %H:%M:%S') All ${nj} decoding done !"
+fi
+
+for n in $(seq $nj); do
+    cat ${decode_dir}/split${n}/hyp.txt >> ${decode_dir}/hyp.txt
+    cat ${decode_dir}/split${n}/${src_lan}.uttids >> ${decode_dir}/${src_lan}.uttids
+done
+
+cat ${path_to_eval_tgt} | cut -d" " -f2- | detokenizer.perl -q -no-escape > ${decode_dir}/${tgt_lan}.txt
+cat ${path_to_eval_tgt} | cut -d" " -f1 > ${decode_dir}/${tgt_lan}.uttids
+diff_utts=$(diff "${decode_dir}/${src_lan}.uttids" "${decode_dir}/${tgt_lan}.uttids")
+if [ ! -z "${diff_utts}" ]; then
+    echo "Utt order mismatch: src [ ${decode_dir}/${src_lan}.uttids ] vs tgt [ ${decode_dir}/${tgt_lan}.uttids ]"
+    exit 1
+fi
+
 sacrebleu ${decode_dir}/${tgt_lan}.txt -i ${decode_dir}/hyp.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
-echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding done !"
+echo "$(date '+%Y-%m-%d %H:%M:%S') Evaluation done !"
 
     
