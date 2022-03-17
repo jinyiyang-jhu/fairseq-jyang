@@ -14,11 +14,9 @@ def get_parser():
     parser.add_argument('--src_text', help='src (ar) text file (each row: S-uttid\t word1 word2 ...', required=True)
     parser.add_argument('--hyp_text', help='hyp (ta) text file (each row: S-uttid\t word1 word2 ...', required=True)
     parser.add_argument('--tgt_txt', help='target (en) text file (each row: word1 word2 ...', required=True)
-    parser.add_argument('--out_dir', help='output directory', required=True)
-    parser.add_argument('--src_lan', help='source language', default="ar")
-    parser.add_argument('--hyp_lan', help='source language', default="ta")
-    parser.add_argument('--tgt_lan', help='target language', default="en")
-    parser.add_argument('--setname', help='name of the set', default="train")
+    parser.add_argument('--out_src', help='output source file path', required=True)
+    parser.add_argument('--out_hyp', help='output hypothesis file path', required=True)
+    parser.add_argument('--out_tgt', help='output target file path', required=True)
     parser.add_argument('--tok_len_limit', help="Keep the utterances with token length lower than limit",
                         type=int, default=1024)
     return parser
@@ -99,11 +97,11 @@ def main():
     intersec_utts = set(src_utt_list) & set(tgt_utt_list)
     intersec_utts = sorted(list(intersec_utts & set(hyp_utt_list)))
 
-    src_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.src_lan+"-"+args.tgt_lan+"."+args.src_lan) # AR-EN.AR
-    hyp_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.hyp_lan+"-"+args.tgt_lan+"."+args.hyp_lan) # TA-EN.TA
-    tgt_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.hyp_lan+"-"+args.tgt_lan+"."+args.tgt_lan) # TA-EN.EN
+    # src_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.src_lan+"-"+args.tgt_lan+"."+args.src_lan) # AR-EN.AR
+    # hyp_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.hyp_lan+"-"+args.tgt_lan+"."+args.hyp_lan) # TA-EN.TA
+    # tgt_ofile_path = os.path.join(args.out_dir, args.setname+"."+args.hyp_lan+"-"+args.tgt_lan+"."+args.tgt_lan) # TA-EN.EN
     write_filtered_src_hyp(dict_src, dict_hyp, dict_tgt,
-        intersec_utts, src_ofile_path, hyp_ofile_path, tgt_ofile_path)
+        intersec_utts, args.out_src, args.out_hyp, args.out_tgt)
 
 if __name__ == "__main__":
     main()

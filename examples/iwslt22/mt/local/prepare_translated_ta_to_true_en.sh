@@ -111,8 +111,10 @@ if [ $stage -le 1 ]; then
             text="${dev_test_text_dir}/${s}/text.${lan_case}.${lan}"
             tok="${datadir}/${s}/text.${lan_case}.${lan}.tok"
             bpe="${datadir}/spm${num_bpe}/${s}.bpe.${hyp_lan}-${tgt_lan}.${lan}"
-
-            cut -d " " -f2- ${text} | tokenizer.perl -q -no-escape > ${tok} || exit 1;
+            
+            # The dev and test1 have been already tokenized
+            # cut -d " " -f2- ${text} | tokenizer.perl -q -no-escape > ${tok} || exit 1;
+            cut -d " " -f2- ${text} > ${tok} || exit 1;
 
             spm_encode \
                 --model="${bpe_mdl}" \
@@ -122,6 +124,8 @@ if [ $stage -le 1 ]; then
         done
     done
 fi
+
+exit 0
 
 if [ $stage -le 2 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Binarizing data"

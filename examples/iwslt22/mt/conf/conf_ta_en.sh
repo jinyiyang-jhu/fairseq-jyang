@@ -23,17 +23,20 @@ decoder_attention_heads=4
 # training parameters
 optimizer="adam"
 adam_betas="(0.9 0.98)"
+adam_eps="1e-9"
 update_freq=1 # gradient accumulation for every N_i batches
 clip_norm=0.0
 patience=0
 
-max_epoch=30
+max_epoch=70
 lr_scheduler="inverse_sqrt"
 lr=5e-4
 init_lr=1e-7
 min_lr=1e-05
 warmup_updates=5000
 dropout=0.3
+activation_dropout=0.1
+attention_dropout=0.1
 weight_decay=0.0001
 #length_norm_loss=
 batch_size=64
