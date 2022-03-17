@@ -49,11 +49,11 @@ def read_text(textfile: str, use_uttid=False, tok_len_limit=None):
             else: # Text starts from first field
                 uttid = idx
                 text = line.strip().split()
+                idx += 1
                 if len(text) == 0: # empty text
                     continue
                 if tok_len_limit is None or len(text) <= tok_len_limit:
                     dict_scp[uttid] = ' '.join(text)
-                    idx += 1
 
     return dict_scp
 
@@ -63,9 +63,9 @@ def write_filtered_src_hyp(dict_src, dict_hyp, dict_tgt, uttlists, src_ofile, hy
     tofh = open(tgt_ofile, 'w', encoding='utf-8')
     
     for utt in uttlists:
-        print(dict_src[utt], file=sofh)
-        print(dict_hyp[utt], file=hofh)
-        print(dict_tgt[utt], file=tofh)
+        print(str(utt) + " " + dict_src[utt], file=sofh)
+        print(str(utt) + " " + dict_hyp[utt], file=hofh)
+        print(str(utt) + " " + dict_tgt[utt], file=tofh)
     sofh.close()
     hofh.close()
     tofh.close()
