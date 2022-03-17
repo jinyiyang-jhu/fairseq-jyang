@@ -28,7 +28,7 @@ path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
 
 path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
 path_to_mdl=exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt
-decode_dir=exp_msa-en_bpe2000/decode_spm2000_${dset}_interactive
+decode_dir=exp_msa-en_bpe2000/decode_spm2000_${dset}_interactive_debug
 
 num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
 num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)
@@ -59,19 +59,20 @@ fi
 echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding ${src_lan}-${tgt_lan}:${src_lan}"
 
 [ -f ${decode_dir}/logs/decode.log ] && rm ${decode_dir}/logs/decode.log
-cat ${decode_dir}/${src_lan}.bpe.txt | \
+# cat ${decode_dir}/${src_lan}.bpe.txt | \
+${rtx_cuda_cmd} --gpu 1 $decode_dir/logs/decode.log \
+    cat ${decode_dir}/${src_lan}.bpe.txt \| \
     fairseq-interactive ${path_to_dict_dir} \
         --source-lang "${src_lan}" --target-lang "${tgt_lan}" \
         --task translation \
         --path ${path_to_mdl}\
-        --batch-size 256 \
+        --batch-size 128 \
         --buffer-size 2000 \
         --fix-batches-to-gpus \
         --beam 5 \
-        --skip-invalid-size-inputs-valid-test \
-        --remove-bpe=sentencepiece > $decode_dir/logs/decode.log || exit 1
-grep ^D $decode_dir/logs/decode.log | cut -f3 | detokenizer.perl -q > ${decode_dir}/hyp.txt || exit 1
-grep ^S $decode_dir/logs/decode.log | cut -f2 | detokenizer.perl -q > ${decode_dir}/ref.txt 
+        --remove-bpe=sentencepiece  || exit 1
+grep ^D $decode_dir/logs/decode.log | cut -f3 | detokenizer.perl -q -no-escape > ${decode_dir}/hyp.txt || exit 1
+grep ^S $decode_dir/logs/decode.log | cut -f2 | detokenizer.perl -q -no-escape > ${decode_dir}/src.txt 
 sacrebleu ${decode_dir}/${tgt_lan}.txt -i ${decode_dir}/hyp.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
 echo "$(date '+%Y-%m-%d %H:%M:%S') Decoding done !"
 

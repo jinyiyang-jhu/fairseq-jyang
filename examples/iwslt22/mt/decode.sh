@@ -1,25 +1,32 @@
 #!/bin/bash
 
 stage=-1
-nj=8 # no greater than qquota
+nj=1 # no greater than qquota
 
 src_lan="ta"
 tgt_lan="en"
 src_case="tc.rm"
 tgt_case="tc"
+decode_tgt_lan="en"
 
-skip_split="True"
+# tgt_lan="ta"
+# src_lan="en"
+# tgt_case="tc.rm"
+# src_case="tc"
+# decode_tgt_lan="ta"
+
+skip_split="False"
 skip_decode="False"
 
-dset="dev"
-path_to_eval_data=data/ta-en_clean/${dset}
+dset="test1"
+#path_to_eval_data=data/ta-en_clean/${dset}
+path_to_eval_data=matthew/xlsr53.tlg.unk1/${dset}
+# bpe and dic
+path_to_bpe_mdl=data/ta-en_clean/spm_bpe/${src_lan}_bpe_spm1000/bpe.model
+path_to_dict_dir=exp_clean/bin_ta2en
+path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
 
-# bpe and dict
-path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
-path_to_dict_dir=exp_msa-en_bpe2000_tune_with_ta/bin_ta2en
-path_to_mdl=exp_msa-en_bpe2000_tune_with_ta/checkpoints/checkpoint_best.pt
-
-decode_dir=exp_msa-en_bpe2000_tune_with_ta/decode_spm2000_ta2en_manual_clean_${dset}_interactive
+decode_dir=exp_clean/decode_matthew_xlsr53_tlg_unk1_${dset}_interactive
 
 . path.sh
 . cmd.sh
@@ -38,7 +45,7 @@ if [ ${skip_split} != "True" ]; then
 fi
 
 if [ ${skip_decode} != "True" ]; then
-    for f in "${decode_dir}/hyp.txt" "${decode_dir}/${src_lan}.uttids"; do
+    for f in "${decode_dir}/hyp.${decode_tgt_lan}.txt" "${decode_dir}/${src_lan}.uttids" "${decode_dir}/split${n}/src.${src_lan}.txt"; do
         [ -f $f ] && rm $f 
     done
     for n in $(seq $nj); do
@@ -75,8 +82,11 @@ if [ ${skip_decode} != "True" ]; then
                 --beam 5 \
                 --buffer-size 2000 \
                 --remove-bpe=sentencepiece || exit 1
+        
         grep ^D $decode_dir/split${n}/decode.${n}.log | cut -f3 | \
-            detokenizer.perl -q -no-escape > ${decode_dir}/split${n}/hyp.txt || exit 1
+            detokenizer.perl -q -no-escape > ${decode_dir}/split${n}/hyp.${decode_tgt_lan}.txt || exit 1
+        grep ^S $decode_dir/split${n}/decode.${n}.log | cut -f2- | \
+            detokenizer.perl -q -no-escape > ${decode_dir}/split${n}/src.${src_lan}.txt || exit 1  
     ) &
     done
     wait
@@ -84,11 +94,11 @@ if [ ${skip_decode} != "True" ]; then
 fi
 
 for n in $(seq $nj); do
-    cat ${decode_dir}/split${n}/hyp.txt >> ${decode_dir}/hyp.txt
+    cat ${decode_dir}/split${n}/hyp.${decode_tgt_lan}.txt >> ${decode_dir}/hyp.${decode_tgt_lan}.txt
     cat ${decode_dir}/split${n}/${src_lan}.uttids >> ${decode_dir}/${src_lan}.uttids
 done
 
-cat ${path_to_eval_tgt} | cut -d" " -f2- | detokenizer.perl -q -no-escape > ${decode_dir}/${tgt_lan}.txt
+cat ${path_to_eval_tgt} | cut -d" " -f2- | detokenizer.perl -q -no-escape > ${decode_dir}/ref.${tgt_lan}.txt
 cat ${path_to_eval_tgt} | cut -d" " -f1 > ${decode_dir}/${tgt_lan}.uttids
 diff_utts=$(diff "${decode_dir}/${src_lan}.uttids" "${decode_dir}/${tgt_lan}.uttids")
 if [ ! -z "${diff_utts}" ]; then
@@ -96,7 +106,7 @@ if [ ! -z "${diff_utts}" ]; then
     exit 1
 fi
 
-sacrebleu ${decode_dir}/${tgt_lan}.txt -i ${decode_dir}/hyp.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
+sacrebleu ${decode_dir}/ref.${tgt_lan}.txt -i ${decode_dir}/hyp.${decode_tgt_lan}.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
 echo "$(date '+%Y-%m-%d %H:%M:%S') Evaluation done !"
 
     
