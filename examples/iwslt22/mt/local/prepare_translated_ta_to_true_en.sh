@@ -7,7 +7,7 @@ tgt_lan="en"
 hyp_lan="ta"
 
 src_case="tc.rm"
-tgt_case="lc.rm"
+tgt_case="tc"
 hyp_case="tc.rm"
 trainset="train"
 num_bpe=2000
@@ -23,12 +23,13 @@ srcdict="exp_msa-ta_bpe2000_msa2ta_msa_translated_ta_true/bin_ar2ta/dict.ta.txt"
 tgtdict="exp_msa-en_bpe2000/bin_ar2en/dict.en.txt"
 
 # dev
-dev_hyp_lan_text="data/ta-en_clean/dev/text.${hyp_case}.${hyp_lan}"
-dev_tgt_lan_text="data/ta-en_clean/dev/text.${tgt_case}.${tgt_lan}"
+dev_test_text_dir="data/ta-en_clean"
+# dev_hyp_lan_text="${dev_test_text_dir}/dev/text.${hyp_case}.${hyp_lan}"
+# dev_tgt_lan_text="${dev_test_text_dir}/dev/text.${tgt_case}.${tgt_lan}"
 
 # test
-test_hyp_lan_text="data/ta-en_clean/test1/text.${hyp_case}.${hyp_lan}"
-test_tgt_lan_text="data/ta-en_clean/test1/text.${tgt_case}.${tgt_lan}"
+# test_hyp_lan_text="data/ta-en_clean/test1/text.${hyp_case}.${hyp_lan}"
+# test_tgt_lan_text="data/ta-en_clean/test1/text.${tgt_case}.${tgt_lan}"
 
 . path.sh
 . parse_options.sh
@@ -61,47 +62,41 @@ if [ $stage -le 0 ]; then
             --out_src ${outdir}/text.${src_case}.${src_lan} \
             --out_hyp ${outdir}/text.${hyp_case}.${hyp_lan} \
             --out_tgt ${outdir}/text.bpe.${tgt_case}.${tgt_lan}
-    ) &
-    done
-    wait
-    
-    for f in "text.${src_case}.${src_lan}" "text.${hyp_case}.${hyp_lan}"; do
-        if [ -f ${datadir}/${trainset}/${f} ]; then
-            rm ${datadir}/${trainset}/${f}
-        fi
-    done
 
-    if [ -f "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${tgt_lan}" ]; then
-        rm  "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${tgt_lan}"
-    fi
-    mkdir -p ${datadir}/spm${num_bpe} || exit 1;
-    for n in $(seq 8); do
-        outdir=${datadir}/${trainset}/split${n}
-        cut -d " " -f2- "${outdir}/text.${src_case}.${src_lan}"  >> "${datadir}/${trainset}/text.${src_case}.${src_lan}"
-        cut -d " " -f2- "${outdir}/text.${hyp_case}.${hyp_lan}"  >> "${datadir}/${trainset}/text.${hyp_case}.${hyp_lan}"
-        cut -d " " -f2- "${outdir}/text.bpe.${tgt_case}.${tgt_lan}"  >> "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${tgt_lan}"
-    done
-fi
+        echo "Detokenize : split ${i}"
+        text="${outdir}/text.${hyp_case}.${hyp_lan}"
+        detok="${outdir}/text.${hyp_case}.${hyp_lan}.detok"
+        tok="${outdir}/text.${hyp_case}.${hyp_lan}.tok"
+        bpe="${outdir}/train.bpe.${hyp_lan}-${tgt_lan}.${hyp_lan}"
 
-if [ $stage -le 1 ]; then
-    echo "$(date) Preprocess train/dev/test: normalization, BPE convertion, and binarization"
-    echo "$(data) Preprocess: train"
-    for s in ${trainset}; do
-        text="${datadir}/${s}/text.${hyp_case}.${hyp_lan}"
-        detok="${datadir}/${s}/text.${hyp_case}.${hyp_lan}.detok"
-        tok="${datadir}/${s}/text.${hyp_case}.${hyp_lan}.tok"
-        bpe="${datadir}/spm${num_bpe}/${s}.bpe.${hyp_lan}-${tgt_lan}.${hyp_lan}"
-
-        detokenizer.perl -q -no-escape < ${text} > ${detok} || exit 1;
-        tokenizer.perl -q -no-escape < ${detok} > ${tok} || exit 1;
+        cut -d " " -f2- ${text} | detokenizer.perl -q -no-escape  > ${detok} || exit 1;
+        tokenizer.perl -q -no-escape -threads 2 < ${detok} > ${tok} || exit 1;
 
         spm_encode \
             --model="${hyp_lan_bpe_mdl}" \
             --output_format=piece \
-            < ${tok}} \
+            < ${tok} \
             > ${bpe} || exit 1;
-    done
 
+    ) &
+    done
+    wait
+
+    for lan in ${hyp_lan} ${tgt_lan}; do
+        if [ -f "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${lan}" ]; then
+            rm  "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${lan}"
+        fi
+    done
+    mkdir -p ${datadir}/spm${num_bpe} || exit 1;
+    for n in $(seq 8); do
+        outdir=${datadir}/${trainset}/split${n}
+        cut -d " " -f2- "${outdir}/text.bpe.${tgt_case}.${tgt_lan}"  >> "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${tgt_lan}"
+        cat "${outdir}/train.bpe.${hyp_lan}-${tgt_lan}.${hyp_lan}" >> "${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}.${hyp_lan}"
+    done
+fi
+
+if [ $stage -le 1 ]; then
+    echo "$(date) Preprocess dev/test: normalization, BPE convertion, and binarization"
     for s in "dev" "test1"; do
         for lan in ${hyp_lan} ${tgt_lan}; do
             if [ "${lan}" == "${hyp_lan}" ]; then
@@ -111,23 +106,24 @@ if [ $stage -le 1 ]; then
                 lan_case=${tgt_case}
                 bpe_mdl=${tgt_lan_bpe_mdl}
             fi
-            echo "$(data) Preprocess: ${s}:${lan}"
-
-            text="${datadir}/${s}/text.${lan_case}.${lan}"
-            detok="${datadir}/${s}/text.${lan_case}.${lan}.detok"
+            echo "$(date) Preprocess: ${s}:${lan}"
+            mkdir -p ${datadir}/${s} || exit 1
+            text="${dev_test_text_dir}/${s}/text.${lan_case}.${lan}"
             tok="${datadir}/${s}/text.${lan_case}.${lan}.tok"
             bpe="${datadir}/spm${num_bpe}/${s}.bpe.${hyp_lan}-${tgt_lan}.${lan}"
 
-            tokenizer.perl -q -no-escape < ${detok} > ${tok} || exit 1;
+            tokenizer.perl -q -no-escape < ${text} > ${tok} || exit 1;
 
             spm_encode \
                 --model="${bpe_mdl}" \
                 --output_format=piece \
-                < ${tok}} \
+                < ${tok} \
                 > ${bpe} || exit 1;
         done
     done
+fi
 
+if [ $stage -le 2 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Binarizing data"
     trainpref="${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}"
     validpref="${datadir}/spm${num_bpe}/dev.bpe.${hyp_lan}-${tgt_lan}"
@@ -139,5 +135,4 @@ if [ $stage -le 1 ]; then
         --trainpref $trainpref --validpref $validpref --testpref $testpref \
         --destdir ${bindir} --thresholdtgt 0 --thresholdsrc 0 \
         --workers 16 || exit 1;
-
 fi
