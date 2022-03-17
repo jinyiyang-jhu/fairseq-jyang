@@ -112,7 +112,7 @@ if [ $stage -le 1 ]; then
             tok="${datadir}/${s}/text.${lan_case}.${lan}.tok"
             bpe="${datadir}/spm${num_bpe}/${s}.bpe.${hyp_lan}-${tgt_lan}.${lan}"
 
-            tokenizer.perl -q -no-escape < ${text} > ${tok} || exit 1;
+            cut -d " " -f2- ${text} | tokenizer.perl -q -no-escape > ${tok} || exit 1;
 
             spm_encode \
                 --model="${bpe_mdl}" \
