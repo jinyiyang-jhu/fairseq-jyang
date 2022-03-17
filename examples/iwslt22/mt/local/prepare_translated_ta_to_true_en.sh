@@ -31,6 +31,7 @@ test_hyp_lan_text="data/ta-en_clean/test1/text.${hyp_case}.${hyp_lan}"
 test_tgt_lan_text="data/ta-en_clean/test1/text.${tgt_case}.${tgt_lan}"
 
 . path.sh
+. parse_options.sh
 
 if [ $stage -le 0 ]; then
     echo "$(date) Stage 1: Filtering src/hyp/tgt text files"
