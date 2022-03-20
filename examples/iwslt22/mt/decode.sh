@@ -17,16 +17,19 @@ decode_tgt_lan="en"
 
 skip_split="False"
 skip_decode="False"
+hyp_is_scp="True"
 
 dset="test1"
 #path_to_eval_data=data/ta-en_clean/${dset}
-path_to_eval_data=matthew/xlsr53.tlg.unk1/${dset}
+path_to_eval_data=amir_asr_mgb2_finetuning_transformer/${dset}
 # bpe and dic
-path_to_bpe_mdl=data/ta-en_clean/spm_bpe/${src_lan}_bpe_spm1000/bpe.model
-path_to_dict_dir=exp_clean/bin_ta2en
-path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
-
-decode_dir=exp_clean/decode_matthew_xlsr53_tlg_unk1_${dset}_interactive
+#path_to_bpe_mdl=data/ta-en_clean/spm_bpe/${src_lan}_bpe_spm1000/bpe.model
+#path_to_dict_dir=exp_clean/bin_ta2en
+#path_to_mdl=exp_clean/checkpoints/checkpoint_best.pt
+path_to_bpe_mdl=data/msa-en_processed/spm2000/ar_bpe_spm2000/bpe.model
+path_to_dict_dir=exp_msa-en_bpe2000/bin_ar2en
+path_to_mdl=exp_msa-en_bpe2000_tune_with_ta/checkpoints/checkpoint_best.pt
+decode_dir=exp_msa-en_bpe2000_tune_with_ta/decode_amir_mgb2_finetuning_transformer_${dset}_interactive
 
 . path.sh
 . cmd.sh
@@ -56,6 +59,16 @@ if [ ${skip_decode} != "True" ]; then
             exit 1;
         fi
         path_to_eval_src=${path_to_eval_data}/split${nj}/${n}/text.${src_case}.${src_lan}
+        path_to_eval_tgt=${path_to_eval_data}/split${nj}/${n}/text.${tgt_case}.${tgt_lan}
+
+        if [ ${hyp_is_scp} == "True" ]; then
+            path_to_eval_src_sorted=${path_to_eval_data}/split${nj}/${n}/text.${tgt_case}.${tgt_lan}.sorted
+            python local/sort_src_to_tgt_order.py \
+                --src_text ${path_to_eval_tgt} \
+                --hyp_in_text ${path_to_eval_src} \
+                --hyp_out_text ${path_to_eval_src_sorted}
+            path_to_eval_src=${path_to_eval_src_sorted}
+        fi
 
         cat ${path_to_eval_src} | cut -d" " -f2- | tokenizer.perl -q -no-escape > ${decode_dir}/split${n}/${src_lan}.txt
         cat ${path_to_eval_src} | cut -d" " -f1 > ${decode_dir}/split${n}/${src_lan}.uttids
