@@ -125,8 +125,6 @@ if [ $stage -le 1 ]; then
     done
 fi
 
-exit 0
-
 if [ $stage -le 2 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Binarizing data"
     trainpref="${datadir}/spm${num_bpe}/${trainset}.bpe.${hyp_lan}-${tgt_lan}"
