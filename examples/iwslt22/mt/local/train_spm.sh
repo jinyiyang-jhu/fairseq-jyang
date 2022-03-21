@@ -3,6 +3,7 @@
 nbpe=32000
 
 train_text_dir="data/ta-en_ta_translated_en_true/train"
+ta2en_text_dir="data/ta-en_clean/spm_bpe"
 bpedir="data/ta-en_ta_translated_en_true/spm_${nbpe}_ta_en_both_42M"
 
 src_lan="ta"
@@ -27,9 +28,15 @@ for lan in $src_lan $tgt_lan; do
     mkdir -p $spm_dir || exit 1;
 
     train_text=${train_text_dir}/text.${case}.${lan}.tok
+    spm_train_text=${train_text_dir}/text.${case}.${lan}.combine_ta2en_${lan}.tok
+    if [ ! -f $spm_train_text ]; then
+        echo "Combining TA-EN:${lan} to train text"
+        cat $train_text ${ta2en_text_dir}/${lan}_bpe_spm1000/train.txt > $spm_train_text
+    fi
+
     echo "$(date) Training the spm model for lan: ${lan}, train text is ${train_text}"
     spm_train \
-    --input="${train_text}" \
+    --input="${spm_train_text}" \
     --vocab_size="${nbpe}" \
     --model_type="bpe" \
     --model_prefix="${spm_dir}"/bpe \
