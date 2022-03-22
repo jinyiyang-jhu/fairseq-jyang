@@ -1,6 +1,6 @@
 #!/bin/bash
 
-nbpe=32000
+nbpe=8000
 
 train_text_dir="data/ta-en_ta_translated_en_true/train"
 ta2en_text_dir="data/ta-en_clean/spm_bpe"
@@ -34,7 +34,7 @@ for lan in $src_lan $tgt_lan; do
         cat $train_text ${ta2en_text_dir}/${lan}_bpe_spm1000/train.txt > $spm_train_text
     fi
 
-    echo "$(date) Training the spm model for lan: ${lan}, train text is ${train_text}"
+    echo "$(date) Training the spm model for lan: ${lan}, train text is ${spm_train_text}"
     spm_train \
     --input="${spm_train_text}" \
     --vocab_size="${nbpe}" \
