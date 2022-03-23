@@ -10,13 +10,13 @@ save_interval=2
 
 # encoder
 encoder_layers=6
-encoder_embed_dim=768
+encoder_embed_dim=1024
 encoder_ffn_embed_dim=4096
 encoder_attention_heads=16
 
 # decoder
 decoder_layers=6
-decoder_embed_dim=768
+decoder_embed_dim=1024
 decoder_ffn_embed_dim=4096
 decoder_attention_heads=16
 

@@ -28,7 +28,7 @@ update_freq=1 # gradient accumulation for every N_i batches
 clip_norm=0.1
 patience=0
 
-max_epoch=75
+max_epoch=100
 lr_scheduler="inverse_sqrt"
 lr=1e-4
 init_lr=1e-7
