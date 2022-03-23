@@ -1,6 +1,6 @@
 #!/bin/bash
 
-stage=-1
+stage=2
 nj_preprocess=16
 ngpus=4
 
@@ -8,18 +8,18 @@ src_lan="ta"
 tgt_lan="en"
 src_case="tc.rm"
 tgt_case="tc"
-srcdict="exp_msa-en_bpe2000/bin_ar2en/dict.ar.txt"
-tgtdict="exp_msa-en_bpe2000/bin_ar2en/dict.en.txt"
-src_nbpe=2000
-tgt_nbpe=2000
+srcdict="exp_ta-en_ta_translated_en_true_spm32k_ta_en_both_42M/bin_ta2en/dict.${src_lan}.txt"
+tgtdict="exp_ta-en_ta_translated_en_true_spm32k_ta_en_both_42M/bin_ta2en/dict.${tgt_lan}.txt"
+# src_nbpe=2000
+# tgt_nbpe=2000
 # tgt_case="tc"
 
-#bpedir=data/msa-en_processed/spm2000
 data_feats="data/ta-en_clean"
-destdir="exp_msa-en_bpe2000_tune_with_ta"
-fine_tune_from="exp_msa-en_bpe2000/checkpoints/checkpoint_best.pt"
-bpedir="data/ta-en_clean/spm2000_msa_ta_joint"
-bpemodel_dir="data/msa-en_processed/spm2000"
+conf=conf/conf_haoran_wmt_big_tune.sh
+destdir="exp_ta-en_ta_translated_en_true_spm32k_ta_en_both_42M_epoch_upto32_tune_with_true_ta_en"
+fine_tune_from="exp_ta-en_ta_translated_en_true_spm32k_ta_en_both_42M/checkpoints/checkpoint_best.pt"
+bpedir="data/ta-en_clean/spm32k_ta_en_both_42M"
+bpemodel_dir="data/ta-en_ta_translated_en_true/spm_32000_ta_en_both_42M"
 bindir=$destdir/bin_${src_lan}2${tgt_lan}
 
 train_set="train"
@@ -29,8 +29,8 @@ trainpref=${bpedir}/${train_set}.bpe.${src_lan}-${tgt_lan}
 validpref=${bpedir}/${dev_set}.bpe.${src_lan}-${tgt_lan}
 testpref=${bpedir}/${test_set}.bpe.${src_lan}-${tgt_lan}
 testset_name="test" # "valid" for dev; "test" for test1
-conf=conf/conf_msa_en_tune_with_ta.sh
 
+echo "conf is $conf"
 
 . path.sh
 . cmd.sh
@@ -41,19 +41,19 @@ mkdir -p $destdir || exit 1;
 mkdir -p $bpedir || exit 1;
 
 if [ $stage -le 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') Tokenizing data"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Binarizing data"
     for lan in "${src_lan}" "${tgt_lan}"; do
         if [ "${lan}" == "${src_lan}" ]; then
             lan_case=$src_case
-            nbpe=$src_nbpe
+            # nbpe=$src_nbpe
         else
             lan_case=$tgt_case
-            nbpe=$tgt_nbpe
+            # nbpe=$tgt_nbpe
         fi
-        bpemodel=${bpemodel_dir}/${lan}_bpe_spm2000/bpe.model
-        if [ "${lan}" == "ta" ]; then
-            bpemodel=${bpemodel_dir}/ar_bpe_spm2000/bpe.model
-        fi
+        bpemodel=${bpemodel_dir}/${lan}/bpe.model
+        # if [ "${lan}" == "ta" ]; then
+        #     bpemodel=${bpemodel_dir}/ar_bpe_spm2000/bpe.model
+        # fi
 
         for dset in "${train_set}" "${dev_set}" "${test_set}"; do
             dtext=${data_feats}/${dset}/text.${lan_case}.${lan}
@@ -95,11 +95,11 @@ if [ $stage -le 2 ]; then
         --finetune-from-model ${fine_tune_from} \
         --encoder-layers $encoder_layers \
         --encoder-embed-dim $encoder_embed_dim \
-        --encoder-ffn-embed-dim $encoder_hidden_size \
+        --encoder-ffn-embed-dim $encoder_ffn_embed_dim \
         --encoder-attention-heads $encoder_attention_heads \
         --decoder-layers $decoder_layers \
         --decoder-embed-dim $decoder_embed_dim \
-        --decoder-ffn-embed-dim $decoder_hidden_size \
+        --decoder-ffn-embed-dim $decoder_ffn_embed_dim \
         --decoder-attention-heads $decoder_attention_heads \
         --attention-dropout ${attention_dropout} \
         --tensorboard-logdir ${destdir}/tensorboard-log \

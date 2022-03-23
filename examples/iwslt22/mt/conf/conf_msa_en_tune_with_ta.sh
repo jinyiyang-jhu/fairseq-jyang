@@ -5,19 +5,19 @@ task="translation"
 share_embeddings="" # if want to use this option, add "--share-all-embeddings" in the train script.
 train_num_workers=4
 decode_num_workers=4
-save_interval=2
+save_interval=5
 #keep_last_epochs=30
 
 # encoder
 encoder_layers=6
 encoder_embed_dim=512
-encoder_hidden_size=2048
+encoder_ffn_embed_dim=2048
 encoder_attention_heads=8
 
 # decoder
 decoder_layers=6
 decoder_embed_dim=512
-decoder_hidden_size=2048
+decoder_ffn_embed_dim=2048
 decoder_attention_heads=8
 
 # training parameters
