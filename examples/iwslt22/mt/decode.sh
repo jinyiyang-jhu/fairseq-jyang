@@ -5,7 +5,7 @@ nj=1 # no greater than qquota
 
 src_lan="ta"
 tgt_lan="en"
-src_case="tc.rm"
+src_case=".tc.rm"
 tgt_case="tc"
 decode_tgt_lan="en"
 
@@ -13,12 +13,13 @@ skip_decode="False"
 hyp_is_scp="True"
 
 sets=("dev" "test1" "blind_eval")
-path_to_eval_data="amir_asr/tuned_models_results/row15"
+#path_to_eval_data="amir_asr/tuned_models_results/row15"
+path_to_eval_data="data/ta-en_clean"
 path_to_ref_data="data/ta-en_clean"
-set_name="row15"
+set_name="gold_transcript"
 nbpe=4000
-
-path_to_bpe_mdl=/home/hltcoe/jyang1/tools/espnet/egs2/iwslt22_dialect/st1/data_clean/spm_bpe_4000/${tgt_lan}_bpe_spm4000/bpe.model
+mdl_name="row27"
+path_to_bpe_mdl=/home/hltcoe/jyang1/tools/espnet/egs2/iwslt22_dialect/st1/data_clean/spm_bpe_4000/${src_lan}_bpe_spm4000/bpe.model
 mdl_dir=/exp/jyang1/exp/IWSLT22/TA-EN/MT/fairseq/exp_clean_spm4000
 path_to_dict_dir=${mdl_dir}/bin_${src_lan}2${tgt_lan}
 path_to_mdl=${mdl_dir}/checkpoints/checkpoint_best.pt
@@ -29,10 +30,9 @@ path_to_mdl=${mdl_dir}/checkpoints/checkpoint_best.pt
 
 if [ ${skip_decode} != "True" ]; then
     for dset in ${sets[@]}; do
-    (
         if [ $dset != "blind_eval" ]; then
-            path_to_eval_src=${path_to_eval_data}/${dset}/text.${src_case}.${src_lan}
-            path_to_eval_tgt=${path_to_eval_data}/${dset}/text.${tgt_case}.${tgt_lan}
+            path_to_eval_src=${path_to_eval_data}/${dset}/text${src_case}.${src_lan}
+            path_to_eval_tgt=${path_to_ref_data}/${dset}/text.${tgt_case}.${tgt_lan}
 
             num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
             num_tgt_lines=$(wc -l ${path_to_eval_tgt} | cut -d" " -f1)
@@ -49,7 +49,7 @@ if [ ${skip_decode} != "True" ]; then
             python local/sort_src_to_tgt_order.py \
                 --src_text ${path_to_eval_tgt} \
                 --hyp_in_text ${path_to_eval_src} \
-                --hyp_out_text ${path_to_eval_src_sorted}
+                --hyp_out_text ${path_to_eval_src_sorted} || exit 1;
             path_to_eval_src=${path_to_eval_src_sorted}
         fi
 
@@ -94,11 +94,10 @@ if [ ${skip_decode} != "True" ]; then
             fi
 
             sacrebleu ${decode_dir}/ref.${tgt_lan}.txt -i ${decode_dir}/hyp.${decode_tgt_lan}.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
-            cp ${decode_dir}/hyp.${decode_tgt_lan}.txt ${path_to_eval_data}
-            cp ${decode_dir}/results.txt ${path_to_eval_data}/bleus.txt
+            cp ${decode_dir}/hyp.${decode_tgt_lan}.txt ${path_to_eval_data}/${dset}/hyp.${mdl_name}.txt
+            cp ${decode_dir}/results.txt ${path_to_eval_data}/${dset}/${mdl_name}.bleus.txt
         fi
         echo "$(date '+%Y-%m-%d %H:%M:%S') Evaluation done !"
-    ) &
     done
 fi
 
