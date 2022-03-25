@@ -5,18 +5,22 @@ nj=1 # no greater than qquota
 
 src_lan="ta"
 tgt_lan="en"
-src_case=".tc.rm"
+#src_case=".tc.rm"
+src_case=""
 tgt_case="tc"
 decode_tgt_lan="en"
 
 skip_decode="False"
 hyp_is_scp="True"
 
-sets=("dev" "test1" "blind_eval")
-#path_to_eval_data="amir_asr/tuned_models_results/row15"
-path_to_eval_data="data/ta-en_clean"
+#sets=("dev" "test1" "blind_eval")
+sets=("blind_eval")
+
+#set_name="gold_transcript"
+set_name="row16"
+path_to_eval_data="amir_asr/row16"
+#path_to_eval_data="data/ta-en_clean"
 path_to_ref_data="data/ta-en_clean"
-set_name="gold_transcript"
 nbpe=4000
 mdl_name="row27"
 path_to_bpe_mdl=/home/hltcoe/jyang1/tools/espnet/egs2/iwslt22_dialect/st1/data_clean/spm_bpe_4000/${src_lan}_bpe_spm4000/bpe.model
@@ -30,8 +34,8 @@ path_to_mdl=${mdl_dir}/checkpoints/checkpoint_best.pt
 
 if [ ${skip_decode} != "True" ]; then
     for dset in ${sets[@]}; do
+        path_to_eval_src=${path_to_eval_data}/${dset}/text${src_case}.${src_lan}
         if [ $dset != "blind_eval" ]; then
-            path_to_eval_src=${path_to_eval_data}/${dset}/text${src_case}.${src_lan}
             path_to_eval_tgt=${path_to_ref_data}/${dset}/text.${tgt_case}.${tgt_lan}
 
             num_src_lines=$(wc -l ${path_to_eval_src} | cut -d" " -f1)
@@ -40,18 +44,18 @@ if [ ${skip_decode} != "True" ]; then
                 echo "Line mismatch: src ($num_src_lines) vs tgt ($num_tgt_lines)"
                 exit 1;
             fi
+            if [ ${hyp_is_scp} == "True" ]; then
+                path_to_eval_src_sorted=${path_to_eval_data}/${dset}/text${src_case}.${src_lan}.sorted
+                python local/sort_src_to_tgt_order.py \
+                    --src_text ${path_to_eval_tgt} \
+                    --hyp_in_text ${path_to_eval_src} \
+                    --hyp_out_text ${path_to_eval_src_sorted} || exit 1;
+                path_to_eval_src=${path_to_eval_src_sorted}
+            fi
         fi
+
         decode_dir=${mdl_dir}/decode_${set_name}_${dset}_interactive
         mkdir -p ${decode_dir} || exit 1
-
-        if [ ${hyp_is_scp} == "True" ]; then
-            path_to_eval_src_sorted=${path_to_eval_data}/${dset}/text.${tgt_case}.${tgt_lan}.sorted
-            python local/sort_src_to_tgt_order.py \
-                --src_text ${path_to_eval_tgt} \
-                --hyp_in_text ${path_to_eval_src} \
-                --hyp_out_text ${path_to_eval_src_sorted} || exit 1;
-            path_to_eval_src=${path_to_eval_src_sorted}
-        fi
 
         cat ${path_to_eval_src} | cut -d" " -f2- | tokenizer.perl -q -no-escape > ${decode_dir}/${src_lan}.txt
         cat ${path_to_eval_src} | cut -d" " -f1 > ${decode_dir}/${src_lan}.uttids
@@ -95,7 +99,9 @@ if [ ${skip_decode} != "True" ]; then
 
             sacrebleu ${decode_dir}/ref.${tgt_lan}.txt -i ${decode_dir}/hyp.${decode_tgt_lan}.txt -m bleu -lc > ${decode_dir}/results.txt || exit 1
             cp ${decode_dir}/hyp.${decode_tgt_lan}.txt ${path_to_eval_data}/${dset}/hyp.${mdl_name}.txt
-            cp ${decode_dir}/results.txt ${path_to_eval_data}/${dset}/${mdl_name}.bleus.txt
+            cp ${decode_dir}/results.txt ${path_to_eval_data}/${dset}/bleus.${mdl_name}.txt
+        else
+            cp ${decode_dir}/hyp.${decode_tgt_lan}.txt ${path_to_eval_data}/${dset}/hyp.${mdl_name}.txt
         fi
         echo "$(date '+%Y-%m-%d %H:%M:%S') Evaluation done !"
     done
