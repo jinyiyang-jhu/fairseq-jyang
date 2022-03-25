@@ -10,8 +10,8 @@ nj=1 # no greater than qquota
 
 
 src_case=""
-set_name="row16"
-path_to_eval_data="amir_asr/row16"
+set_name="row20_beam40"
+path_to_eval_data="amir_asr/beam40/row20"
 ############ Change #############
 path_to_bpe_mdl=/home/hltcoe/jyang1/tools/espnet/egs2/iwslt22_dialect/st1/data_clean/spm_bpe_4000/ta_bpe_spm4000/bpe.model
 mdl_name="row27"
@@ -91,10 +91,10 @@ if [ ${skip_decode} != "True" ]; then
         if [ $dset != "blind_eval" ]; then
 
             path_to_eval_tgt_sorted=${path_to_eval_data}/${dset}/text.${tgt_case}.${tgt_lan}.sorted
-            python local/sort_src_to_tgt_order.py \
-                --src_text ${decode_dir}/hyp.${decode_tgt_lan}.text \
-                --hyp_in_text ${path_to_eval_tgt} \
-                --hyp_out_text ${path_to_eval_tgt_sorted} || exit 1;
+            python local/sort_tgt_to_ref_order.py \
+                --ref_text ${decode_dir}/hyp.${decode_tgt_lan}.text \
+                --tgt_in_text ${path_to_eval_tgt} \
+                --tgt_out_text ${path_to_eval_tgt_sorted} || exit 1;
 
             cat ${path_to_eval_tgt_sorted} | cut -d" " -f2- | detokenizer.perl -q -no-escape > ${decode_dir}/ref.${tgt_lan}.sorted.txt
             cat ${path_to_eval_tgt_sorted} | cut -d" " -f1 > ${decode_dir}/${tgt_lan}.sorted.uttids

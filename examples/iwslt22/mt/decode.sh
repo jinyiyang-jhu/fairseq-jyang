@@ -46,10 +46,10 @@ if [ ${skip_decode} != "True" ]; then
             fi
             if [ ${hyp_is_scp} == "True" ]; then
                 path_to_eval_src_sorted=${path_to_eval_data}/${dset}/text${src_case}.${src_lan}.sorted
-                python local/sort_src_to_tgt_order.py \
-                    --src_text ${path_to_eval_tgt} \
-                    --hyp_in_text ${path_to_eval_src} \
-                    --hyp_out_text ${path_to_eval_src_sorted} || exit 1;
+                python local/sort_tgt_to_ref_order.py \
+                    --ref_text ${path_to_eval_tgt} \
+                    --tgt_in_text ${path_to_eval_src} \
+                    --tgt_out_text ${path_to_eval_src_sorted} || exit 1;
                 path_to_eval_src=${path_to_eval_src_sorted}
             fi
         fi
