@@ -39,7 +39,6 @@ for d in $destdir $bpedir; do
 done
 
 if [ $stage -le 0 ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') Tokenizing data"
     for lan in "${src_lan}" "${tgt_lan}"; do
         if [ "${lan}" == "${src_lan}" ]; then
             lan_case=$src_case
@@ -50,12 +49,17 @@ if [ $stage -le 0 ]; then
 
         for dset in "${train_set}" "${dev_set}" "${test_set}"; do
             text=${data_feats}/${dset}/text.${lan_case}.${lan}
+            tok_text=${data_feats}/${dset}/text.${lan_case}.${lan}.tok
+
             if [ $tokenized == "False" ]; then
                 echo "$(date -u) Tokenizing : ${dset}-${lan}"
-                tok_text=${data_feats}/${dset}/text.${lan_case}.${lan}.tok
                 tokenizer.perl -l en -q -no-escape < $text > $tok_text || exit 1;
+            else
+                cut -d " " -f2- $text > $tok_text
             fi
-            text="${data_feats}/${dset}/text.${lan_case}.${lan}.tok"
+
+            #text="${data_feats}/${dset}/text.${lan_case}.${lan}.tok"
+            text=$tok_text
             echo "$(date -u) spm-encoding for ${dset}-${lan}"
             spm_encode \
                 --model="${bpemodel}" \
@@ -118,7 +122,7 @@ if [ $stage -le 2 ]; then
         --label-smoothing $label_smoothing \
         --save-dir ${destdir}/checkpoints \
         --save-interval $save_interval \
-        --save-interval-updates 2000 \
+        --save-interval-updates 1000 \
         --keep-interval-updates 3 \
         --memory-efficient-fp16 \
         --skip-invalid-size-inputs-valid-test \
