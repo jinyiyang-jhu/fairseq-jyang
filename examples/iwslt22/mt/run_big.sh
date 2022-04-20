@@ -1,6 +1,6 @@
 #!/bin/bash
 
-stage=1
+stage=-1
 nj_preprocess=16
 ngpus=4
 
