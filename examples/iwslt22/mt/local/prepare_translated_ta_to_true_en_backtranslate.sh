@@ -1,6 +1,6 @@
 #!/bin/bash
 
-stage=-1
+stage=1
 
 src_lan="ta"
 tgt_lan="en"
@@ -70,7 +70,7 @@ if [ $stage -le 1 ]; then
         for dset in dev test1; do
             text=${dev_test_dir}/${dset}.txt
             spm_encode \
-                --model="${bpemodel}" \
+                --model="${bpe_mdl}" \
                 --output_format=piece \
                 < ${text} \
                 > ${bpedir}/${dset}.bpe.${src_lang}-${tgt_lang}.${lan}
