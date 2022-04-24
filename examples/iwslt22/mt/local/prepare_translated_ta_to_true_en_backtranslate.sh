@@ -1,6 +1,6 @@
 #!/bin/bash
 
-stage=1
+stage=-1
 
 src_lan="ta"
 tgt_lan="en"
