@@ -5,16 +5,18 @@ stage=-1
 src_lan="ta"
 tgt_lan="en"
 
-dev_test_dir="data/ta-en_clean/spm_ta_true_en_joint_4000/${src_lan}2${tgt_lan}"
+#dev_test_dir="data/ta-en_clean/spm_ta_true_en_joint_4000/${src_lan}2${tgt_lan}"
+dev_test_dir="data/ta-en_clean/spm_bpe/en_bpe_spm1000"
 decode_dir="exp_clean_en2ta_ta_true_en_42m_spm4k/decode_spm4k_en2ta_manual_clean_train"
 
 srcdict="exp_clean_en2ta_ta_true_en_42m_spm4k/bin_en2ta/dict.${src_lan}.txt"
 tgtdict="exp_clean_en2ta_ta_true_en_42m_spm4k/bin_en2ta/dict.${tgt_lan}.txt"
 
-bpemdl_dir="data/ta-en_clean/spm_ta_true_en_joint_4000/"
-bpedir="data/ta-en_ta_translated_en_true_translated_from_en2ta_mdl/${src_lan}2${tgt_lan}" # To store the encoded BPEs
+#bpemdl_dir="data/ta-en_clean/spm_ta_true_en_joint_4000/"
+bpemdl_dir="data/ta-en_clean/spm_ta_true_4k_en_joint_32000/"
+bpedir="data/ta-en_ta_translated_en_true_translated_from_en2ta_mdl/spm_ta_condA_4k_en_32k_joint/${src_lan}2${tgt_lan}" # To store the encoded BPEs
 
-bindir="exp_ta2en_ta_translated_from_en2ta_en_true/bin${src_lan}2${tgt_lan}"
+bindir="exp_ta2en_ta_translated_from_en2ta_en_true_ta_4k_en_32k/bin${src_lan}2${tgt_lan}"
 
 src_len=0
 tgt_len=0
@@ -62,6 +64,21 @@ if [ $stage -le 0 ]; then
 fi
 
 if [ $stage -le 1 ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Encoding dev/test data"
+    for lan in ${src_lan} ${tgt_lan}; do
+        bpe_mdl=${bpemdl_dir}/${lan}/bpe.model
+        for dset in dev test1; do
+            text=${dev_test_dir}/${dset}.txt
+            spm_encode \
+                --model="${bpemodel}" \
+                --output_format=piece \
+                < ${text} \
+                > ${bpedir}/${dset}.bpe.${src_lang}-${tgt_lang}.${lan}
+        done
+    done
+fi
+
+if [ $stage -le 2 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') Binarizing data"
     trainpref="${bpedir}/train.bpe.${src_lan}-${tgt_lan}"
     validpref="${dev_test_dir}/dev.bpe.${src_lan}-${tgt_lan}"
